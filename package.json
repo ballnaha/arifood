@@ -6,22 +6,41 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:seed": "npx tsx prisma/seed.ts",
+    "db:seed-thai": "npx tsx prisma/seed-thai.ts",
+    "db:seed-full": "npx tsx prisma/seed-full.ts",
+    "db:seed-addons": "npx tsx prisma/seed-addons.ts",
+    "db:manage-addons": "npx tsx prisma/manage-addons.ts"
   },
   "dependencies": {
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@fontsource/prompt": "^5.2.6",
+    "@fontsource/roboto": "^5.2.5",
+    "@mui/icons-material": "^7.0.0",
+    "@mui/material": "^7.0.0",
+    "@prisma/client": "^6.9.0",
+    "next": "15.3.3",
+    "node-fetch": "^3.3.2",
+    "prisma": "^6.9.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "next": "15.3.3"
+    "react-swipeable-list": "^1.10.0",
+    "swiper": "^11.2.8",
+    "zustand": "^5.0.5"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.3.3",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4",
+    "tsx": "^4.19.4",
+    "typescript": "^5"
   }
 }

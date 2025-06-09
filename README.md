@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AriFood - Food Delivery Website
 
-## Getting Started
+เว็บไซต์สำหรับสั่งอาหารออนไลน์ที่ทันสมัย สร้างด้วย Next.js และ Material-UI
 
-First, run the development server:
+## ✨ คุณสมบัติ
 
+- 🎨 **Design ทันสมัย** - ใช้ Material-UI ด้วย theme สีดำ เหลือง ขาว
+- 📱 **Mobile First** - เน้นการใช้งานบนมือถือ
+- 🔍 **Search Function** - ค้นหาอาหารได้ง่าย
+- 🏷️ **Categories** - แบ่งประเภทอาหารชัดเจน
+- ⭐ **Ratings** - ระบบให้คะแนนร้านอาหาร
+- 🧭 **Bottom Navigation** - เมนูนำทางด้านล่าง
+
+## 🛠️ เทคโนโลยีที่ใช้
+
+- **Next.js 15** - React Framework
+- **Material-UI v7** - Component Library
+- **TypeScript** - Type Safety
+- **Emotion** - CSS-in-JS
+
+## 🚀 การติดตั้งและใช้งาน
+
+1. ติดตั้ง dependencies:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. รันเว็บไซต์ในโหมด development:
+```bash
+npm run dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. เปิดเบราว์เซอร์ไปที่ `http://localhost:3000`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📱 หน้าที่มีอยู่
 
-## Learn More
+- **หน้าแรก** - แสดงอาหารยอดนิยม, ประเภทอาหาร, ร้านอาหารโปรด
+- **Search** - ค้นหาอาหาร
+- **Favorites** - รายการอาหารที่ชอบ
+- **Profile** - ข้อมูลผู้ใช้
 
-To learn more about Next.js, take a look at the following resources:
+## 🎨 Design System
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### สีหลัก
+- **ดำ** (#000000) - พื้นหลังหลัก
+- **เหลือง** (#FFD700) - สีหลัก
+- **ขาว** (#FFFFFF) - สีรอง
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Typography
+- **Roboto** - ฟอนต์หลัก
+- **Mobile First** - ขนาดที่เหมาะสมกับมือถือ
 
-## Deploy on Vercel
+## 📝 License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT License

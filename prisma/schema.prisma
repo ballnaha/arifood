@@ -1,0 +1,156 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  icon        String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  products    Product[]
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  originalPrice Float?  // ราคาเดิม
+  price       Float     // ราคาปัจจุบัน (ราคาขาย)
+  image       String?
+  isActive    Boolean   @default(true)
+  rating      Float     @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id])
+  
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
+  addOns      ProductAddOn[]
+}
+
+model Restaurant {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  description  String?
+  address      String?
+  phone        String?
+  email        String?
+  image        String?
+  rating       Float     @default(0)
+  deliveryTime String?   // เช่น "15-25 นาที"
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  orders       Order[]
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  String      @unique
+  customerName String
+  customerPhone String
+  customerAddress String
+  totalAmount  Float
+  status       OrderStatus @default(PENDING)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  
+  restaurantId String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
+  
+  orderItems   OrderItem[]
+}
+
+model OrderItem {
+  id       String @id @default(cuid())
+  quantity Int
+  price    Float
+  instructions String?
+  
+  orderId  String
+  order    Order   @relation(fields: [orderId], references: [id])
+  
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  
+  addOns   OrderItemAddOn[]
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  quantity  Int
+  sessionId String   // ใช้ session ID แทน user ID เนื่องจากยังไม่มี authentication
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  
+  @@unique([sessionId, productId])
+}
+
+model AddOn {
+  id          String    @id @default(cuid())
+  name        String
+  price       Float
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  products    ProductAddOn[]
+  orderItems  OrderItemAddOn[]
+}
+
+model ProductAddOn {
+  id        String   @id @default(cuid())
+  productId String
+  addOnId   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  addOn     AddOn    @relation(fields: [addOnId], references: [id], onDelete: Cascade)
+  
+  @@unique([productId, addOnId])
+}
+
+model OrderItemAddOn {
+  id          String @id @default(cuid())
+  orderItemId String
+  addOnId     String
+  quantity    Int    @default(1)
+  price       Float
+  
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  addOn       AddOn     @relation(fields: [addOnId], references: [id])
+  
+  @@unique([orderItemId, addOnId])
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
