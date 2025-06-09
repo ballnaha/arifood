@@ -25,10 +25,11 @@ import {
   Type as ListType,
 } from 'react-swipeable-list';
 import 'react-swipeable-list/dist/styles.css';
+import RestaurantOrderInfo from '@/components/RestaurantOrderInfo';
 
 export default function CartClient() {
   const router = useRouter();
-  const { items, totalItems, totalPrice, removeItem, clearCart } = useCartStore();
+  const { items, restaurant, totalItems, totalPrice, removeItem, clearCart } = useCartStore();
 
   if (items.length === 0) {
     return (
@@ -81,9 +82,16 @@ export default function CartClient() {
             <IconButton onClick={() => router.back()}>
               <ArrowBackIcon />
             </IconButton>
-            <Typography variant="h6" fontWeight={600} sx={{ flex: 1 }}>
-              ตะกร้าสินค้า ({totalItems} รายการ)
-            </Typography>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h6" fontWeight={600}>
+                ตะกร้าสินค้า ({totalItems} รายการ)
+              </Typography>
+              {restaurant && (
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>
+                  จาก {restaurant.name}
+                </Typography>
+              )}
+            </Box>
             <Button
               size="small"
               color="error"
@@ -97,6 +105,9 @@ export default function CartClient() {
       </Box>
 
       <Container maxWidth="sm" sx={{ px: 2, py: 3 }}>
+        {/* Restaurant Info */}
+        <RestaurantOrderInfo restaurantName={restaurant?.name} />
+        
         {/* Cart Items */}
         <SwipeableList type={ListType.IOS}>
           {items.map((item) => {

@@ -30,7 +30,7 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: 'Prompt, Roboto, sans-serif',
+    fontFamily: 'var(--font-prompt)',
     h4: {
       fontWeight: 600,
       fontSize: '1.5rem',

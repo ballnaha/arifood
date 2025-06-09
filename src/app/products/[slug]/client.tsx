@@ -32,6 +32,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useCartStore } from '@/store/cartStore';
+import { useRestaurantDialog } from '@/context/RestaurantDialogContext';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import Loading from '@/components/Loading';
 
 interface Product {
@@ -74,6 +76,8 @@ interface ProductClientProps {
 export default function ProductClient({ slug }: ProductClientProps) {
   const router = useRouter();
   const { addItem, getItemQuantity, totalItems, _hasHydrated } = useCartStore();
+  const { showDialog } = useRestaurantDialog();
+  const { requireAuth } = useRequireAuth();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,37 +138,55 @@ export default function ProductClient({ slug }: ProductClientProps) {
     return extraOptions.filter(option => selectedOptions[option.id]);
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product || !_hasHydrated) return;
 
-    const selectedExtras = getSelectedExtras();
-    const extraPrice = selectedExtras.reduce((total, option) => total + option.price, 0);
-    
-    // เพิ่มสินค้าแค่ครั้งเดียว แต่มี quantity ตามที่เลือก
-    const cartItem = {
-      id: `${product.id}_${Date.now()}`, // unique ID
-      name: product.name,
-      price: product.price + extraPrice,
-      image: product.image || undefined,
-      categoryName: product.category?.name || 'อาหาร',
-      instructions: instructions || undefined,
-      extras: selectedExtras.length > 0 ? selectedExtras.map(e => e.name).join(', ') : undefined,
-    };
+    // ตรวจสอบการ login ก่อนเพิ่มลงตะกร้า
+    requireAuth(async () => {
+      const selectedExtras = getSelectedExtras();
+      const extraPrice = selectedExtras.reduce((total, option) => total + option.price, 0);
+      
+      const handleRestaurantConflict = (currentRestaurant: string, newRestaurant: string): Promise<boolean> => {
+        return new Promise((resolve) => {
+          showDialog({
+            currentRestaurant,
+            newRestaurant,
+            onConfirm: () => resolve(true),
+            onCancel: () => resolve(false)
+          });
+        });
+      };
+      
+      // เพิ่มสินค้าแค่ครั้งเดียว แต่มี quantity ตามที่เลือก
+      const cartItem = {
+        id: `${product.id}_${Date.now()}`, // unique ID
+        name: product.name,
+        price: product.price + extraPrice,
+        image: product.image || undefined,
+        categoryName: product.category?.name || 'อาหาร',
+        instructions: instructions || undefined,
+        extras: selectedExtras.length > 0 ? selectedExtras.map(e => e.name).join(', ') : undefined,
+      };
 
-    // เพิ่มสินค้าตามจำนวนที่เลือก
-    for (let i = 0; i < quantity; i++) {
-      addItem(cartItem);
-    }
+      // เพิ่มสินค้าตามจำนวนที่เลือก
+      for (let i = 0; i < quantity; i++) {
+        const success = await addItem(cartItem, undefined, handleRestaurantConflict);
+        if (!success) {
+          // ถ้าผู้ใช้ยกเลิก หยุดการเพิ่มสินค้า
+          return;
+        }
+      }
 
-    // รีเซ็ตฟอร์ม
-    setQuantity(1);
-    setInstructions('');
-    setSelectedOptions({});
-    
-    // แสดง Snackbar สำเร็จ
-    setOpenSnackbar(true);
-    
-    // ไม่ navigate ไปหน้าตะกร้าแล้ว - ให้อยู่หน้าเดิม
+      // รีเซ็ตฟอร์ม
+      setQuantity(1);
+      setInstructions('');
+      setSelectedOptions({});
+      
+      // แสดง Snackbar สำเร็จ
+      setOpenSnackbar(true);
+      
+      // ไม่ navigate ไปหน้าตะกร้าแล้ว - ให้อยู่หน้าเดิม
+    });
   };
 
   if (loading) {

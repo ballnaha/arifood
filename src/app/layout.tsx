@@ -1,25 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Prompt } from "next/font/google";
 import "./globals.css";
-import '@fontsource/roboto/300.css';
-import '@fontsource/roboto/400.css';
-import '@fontsource/roboto/500.css';
-import '@fontsource/roboto/700.css';
 import ClientThemeProvider from './client-theme-provider';
-import '@fontsource/prompt/300.css';
-import '@fontsource/prompt/400.css';
-import '@fontsource/prompt/500.css';
-import '@fontsource/prompt/600.css';
-import '@fontsource/prompt/700.css';
+import { RestaurantDialogProvider } from '@/context/RestaurantDialogContext'
+import { UserProvider } from '@/context/UserContext';
+import FloatingCart from '@/components/FloatingCart';
 
-const geist = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const prompt = Prompt({
+  weight: ['300', '400', '500', '600', '700'],
+  subsets: ['thai', 'latin'],
+  variable: '--font-prompt',
+  display: 'swap', // ป้องกัน FOUT
+  preload: true,
+  fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif']
 });
 
 export const metadata: Metadata = {
@@ -34,9 +27,25 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th">
-      <body className={`${geist.variable} ${geistMono.variable}`}>
+      <head>
+        <link
+          rel="preconnect"
+          href="https://fonts.googleapis.com"
+        />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+      </head>
+      <body className={prompt.className}>
         <ClientThemeProvider>
-        {children}
+          <UserProvider>
+            <RestaurantDialogProvider>
+              {children}
+              <FloatingCart />
+            </RestaurantDialogProvider>
+          </UserProvider>
         </ClientThemeProvider>
       </body>
     </html>

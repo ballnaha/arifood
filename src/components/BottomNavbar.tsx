@@ -3,31 +3,28 @@ import {
   Box,
   BottomNavigation,
   BottomNavigationAction,
-  Badge,
 } from '@mui/material';
 import {
   Home as HomeIcon,
-  Search as SearchIcon,
-  ShoppingCart as CartIcon,
   Person as PersonIcon,
   History as HistoryIcon,
+  Search as SearchIcon,
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { useCartStore } from '@/store/cartStore';
+
 
 export default function BottomNavbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
-  const { totalItems, _hasHydrated } = useCartStore();
 
   // Get current nav value based on pathname
   const getCurrentValue = () => {
     if (pathname === '/') return 0;
     if (pathname.startsWith('/categories') || pathname.startsWith('/search')) return 1;
-    if (pathname.startsWith('/cart')) return 2;
+    if (pathname.startsWith('/history')) return 2;
     if (pathname.startsWith('/profile')) return 3;
     return 0;
   };
@@ -46,13 +43,13 @@ export default function BottomNavbar() {
         router.push('/');
         break;
       case 1:
-        router.push('/history');
+        router.push('/search');
         break;
       case 2:
-        router.push('/cart');
+        router.push('/history');
         break;
       case 3:
-        // Profile page - placeholder
+        router.push('/profile');
         break;
     }
   };
@@ -136,39 +133,19 @@ export default function BottomNavbar() {
           icon={<HomeIcon sx={{ fontSize: '1.3rem' }} />}
         />
         <BottomNavigationAction 
-          label="คำสั่งซื้อ"
-          icon={<HistoryIcon sx={{ fontSize: '1.3rem' }} />}
+          label="ค้นหา"
+          icon={<SearchIcon sx={{ fontSize: '1.3rem' }} />}
         />
         <BottomNavigationAction 
-          label="ตะกร้า"
-          icon={
-            <Badge 
-              badgeContent={_hasHydrated ? totalItems : undefined} 
-              sx={{
-                '& .MuiBadge-badge': {
-                  backgroundColor: '#FFD700',
-                  color: '#000000',
-                  fontSize: '0.65rem',
-                  fontWeight: 700,
-                  right: -3,
-                  top: -3,
-                  minWidth: '18px',
-                  height: '18px',
-                  borderRadius: '10px',
-                  border: '2px solid #000000',
-                  boxShadow: '0 2px 8px rgba(255, 215, 0, 0.6)',
-                }
-              }}
-            >
-              <CartIcon sx={{ fontSize: '1.3rem' }} />
-            </Badge>
-          }
+          label="คำสั่งซื้อ"
+          icon={<HistoryIcon sx={{ fontSize: '1.3rem' }} />}
         />
         <BottomNavigationAction 
           label="อื่นๆ"
           icon={<MoreVertIcon sx={{ fontSize: '1.3rem' }} />}
         />
       </BottomNavigation>
+      
     </Box>
   );
 } 

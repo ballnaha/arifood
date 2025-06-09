@@ -26,7 +26,16 @@ export async function GET(request: Request) {
     const products = await prisma.product.findMany({
       where,
       include: {
-        category: true
+        category: true,
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            address: true,
+            phone: true
+          }
+        }
       },
       orderBy: { name: 'asc' }
     })
@@ -44,7 +53,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, description, price, categoryId, image } = body
+    const { name, description, price, categoryId, image, restaurantId } = body
 
     // สร้าง slug จากชื่อ
     const slug = createSlug(name)
@@ -56,10 +65,18 @@ export async function POST(request: Request) {
         description,
         price: parseFloat(price),
         categoryId,
+        restaurantId,
         image,
       },
       include: {
-        category: true
+        category: true,
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
       }
     })
 

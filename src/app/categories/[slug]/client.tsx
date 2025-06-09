@@ -17,6 +17,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useCartStore } from '@/store/cartStore';
+import { useRestaurantDialog } from '@/context/RestaurantDialogContext';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import Loading from '@/components/Loading';
 import BottomNavbar from '@/components/BottomNavbar';
 
@@ -50,6 +52,8 @@ interface CategoryClientProps {
 export default function CategoryClient({ slug }: CategoryClientProps) {
   const router = useRouter();
   const { addItem, getItemQuantity } = useCartStore();
+  const { showDialog } = useRestaurantDialog();
+  const { requireAuth } = useRequireAuth();
   const [category, setCategory] = useState<Category | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,13 +82,31 @@ export default function CategoryClient({ slug }: CategoryClientProps) {
     fetchCategory();
   }, [slug]);
 
-  const handleAddToCart = (product: Product) => {
-    addItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      categoryName: product.category.name,
+  const handleAddToCart = async (product: Product) => {
+    // ตรวจสอบการ login ก่อนเพิ่มลงตะกร้า
+    requireAuth(async () => {
+      const handleRestaurantConflict = (currentRestaurant: string, newRestaurant: string): Promise<boolean> => {
+        return new Promise((resolve) => {
+          showDialog({
+            currentRestaurant,
+            newRestaurant,
+            onConfirm: () => resolve(true),
+            onCancel: () => resolve(false)
+          });
+        });
+      };
+
+      const success = await addItem({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        categoryName: product.category.name,
+      }, undefined, handleRestaurantConflict);
+
+      if (!success) {
+        console.log('การเพิ่มสินค้าถูกยกเลิก');
+      }
     });
   };
 

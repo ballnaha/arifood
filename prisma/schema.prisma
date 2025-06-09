@@ -11,6 +11,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  password     String
+  name         String
+  role         UserRole   @default(CUSTOMER)
+  phone        String?
+  address      String?
+  latitude     Float?
+  longitude    Float?
+  lineUserId   String?    @unique  // สำหรับ LINE Login
+  avatar       String?    // รูปโปรไฟล์
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  restaurant   Restaurant?
+}
+
 model Category {
   id          String    @id @default(cuid())
   name        String
@@ -37,12 +56,15 @@ model Product {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   
-  categoryId  String
-  category    Category  @relation(fields: [categoryId], references: [id])
+  categoryId   String
+  category     Category   @relation(fields: [categoryId], references: [id])
   
-  orderItems  OrderItem[]
-  cartItems   CartItem[]
-  addOns      ProductAddOn[]
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  
+  orderItems   OrderItem[]
+  cartItems    CartItem[]
+  addOns       ProductAddOn[]
 }
 
 model Restaurant {
@@ -51,15 +73,22 @@ model Restaurant {
   slug         String    @unique
   description  String?
   address      String?
+  latitude     Float?
+  longitude    Float?
   phone        String?
   email        String?
   image        String?
   rating       Float     @default(0)
   deliveryTime String?   // เช่น "15-25 นาที"
   isActive     Boolean   @default(true)
+  isOpen       Boolean   @default(true)  // สถานะเปิด/ปิดร้าน
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   
+  ownerId      String    @unique
+  owner        User      @relation(fields: [ownerId], references: [id])
+  
+  products     Product[]
   orders       Order[]
 }
 
@@ -153,4 +182,10 @@ enum OrderStatus {
   OUT_FOR_DELIVERY
   DELIVERED
   CANCELLED
+}
+
+enum UserRole {
+  CUSTOMER
+  RESTAURANT_OWNER
+  ADMIN
 }

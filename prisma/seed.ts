@@ -1,4 +1,5 @@
 import { PrismaClient } from '../src/generated/prisma'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
@@ -10,8 +11,9 @@ async function main() {
   await prisma.orderItem.deleteMany()
   await prisma.order.deleteMany()
   await prisma.product.deleteMany()
-  await prisma.category.deleteMany()
   await prisma.restaurant.deleteMany()
+  await prisma.user.deleteMany()
+  await prisma.category.deleteMany()
 
   // สร้าง categories
   const healthyFood = await prisma.category.create({
@@ -50,39 +52,64 @@ async function main() {
     },
   })
 
-  // สร้าง restaurants
-  const healthyKitchen = await prisma.restaurant.create({
+  // สร้าง users และ restaurants
+  const hashedPassword = await bcrypt.hash('123456', 10)
+
+  const healthyKitchenOwner = await prisma.user.create({
     data: {
-      name: 'Healthy Kitchen',
-      slug: 'healthy-kitchen',
-      description: 'ร้านอาหารเพื่อสุขภาพ',
-      address: '123 ถนนสุขุมวิท กรุงเทพฯ',
-      phone: '02-123-4567',
-      rating: 4.5,
-      deliveryTime: '15-25 นาที',
+      email: 'healthy@kitchen.com',
+      password: hashedPassword,
+      name: 'คุณสุขภาพ ดี',
+      role: 'RESTAURANT_OWNER',
+      restaurant: {
+        create: {
+          name: 'Healthy Kitchen',
+          slug: 'healthy-kitchen',
+          description: 'ร้านอาหารเพื่อสุขภาพ',
+          address: '123 ถนนสุขุมวิท กรุงเทพฯ',
+          phone: '02-123-4567',
+          rating: 4.5,
+          deliveryTime: '15-25 นาที',
+        }
+      }
     },
+    include: {
+      restaurant: true
+    }
   })
 
-  const pastaHouse = await prisma.restaurant.create({
+  const pastaHouseOwner = await prisma.user.create({
     data: {
-      name: 'Pasta House',
-      slug: 'pasta-house',
-      description: 'ร้านพาสต้า',
-      address: '456 ถนนพหลโยธิน กรุงเทพฯ',
-      phone: '02-234-5678',
-      rating: 4.7,
-      deliveryTime: '20-30 นาที',
+      email: 'pasta@house.com',
+      password: hashedPassword,
+      name: 'คุณพาสต้า เฮาส์',
+      role: 'RESTAURANT_OWNER',
+      restaurant: {
+        create: {
+          name: 'Pasta House',
+          slug: 'pasta-house',
+          description: 'ร้านพาสต้า',
+          address: '456 ถนนพหลโยธิน กรุงเทพฯ',
+          phone: '02-234-5678',
+          rating: 4.7,
+          deliveryTime: '20-30 นาที',
+        }
+      }
     },
+    include: {
+      restaurant: true
+    }
   })
 
   // สร้าง products
-  const products = [
+  const healthyProducts = [
     {
       name: 'Grilled Chicken Salad',
       slug: 'grilled-chicken-salad',
       description: 'สลัดไก่ย่างสดใส พร้อมผักสีเขียว',
       price: 120.00,
       categoryId: healthyFood.id,
+      restaurantId: healthyKitchenOwner.restaurant!.id,
       rating: 4.5,
     },
     {
@@ -91,6 +118,7 @@ async function main() {
       description: 'ควินัวโบลล์ พร้อมผักและเนื้อไก่',
       price: 150.00,
       categoryId: healthyFood.id,
+      restaurantId: healthyKitchenOwner.restaurant!.id,
       rating: 4.3,
     },
     {
@@ -99,6 +127,7 @@ async function main() {
       description: 'สมูทตี้เบอร์รี่รวม',
       price: 89.00,
       categoryId: fruits.id,
+      restaurantId: healthyKitchenOwner.restaurant!.id,
       rating: 4.6,
     },
     {
@@ -107,14 +136,19 @@ async function main() {
       description: 'สลัดแก้วมังกร',
       price: 65.00,
       categoryId: fruits.id,
+      restaurantId: healthyKitchenOwner.restaurant!.id,
       rating: 4.2,
     },
+  ]
+
+  const pastaProducts = [
     {
       name: 'Chocolate Cake',
       slug: 'chocolate-cake',
       description: 'เค้กช็อกโกแลตเข้มข้น',
       price: 95.00,
       categoryId: desserts.id,
+      restaurantId: pastaHouseOwner.restaurant!.id,
       rating: 4.8,
     },
     {
@@ -123,6 +157,7 @@ async function main() {
       description: 'ทีรามิสุแสนอร่อย',
       price: 110.00,
       categoryId: desserts.id,
+      restaurantId: pastaHouseOwner.restaurant!.id,
       rating: 4.7,
     },
     {
@@ -131,6 +166,7 @@ async function main() {
       description: 'น้ำส้มคั้นสด 100%',
       price: 45.00,
       categoryId: drinks.id,
+      restaurantId: pastaHouseOwner.restaurant!.id,
       rating: 4.4,
     },
     {
@@ -139,11 +175,12 @@ async function main() {
       description: 'ชาเขียวลาเต้หอมกรุ่น',
       price: 55.00,
       categoryId: drinks.id,
+      restaurantId: pastaHouseOwner.restaurant!.id,
       rating: 4.5,
     },
   ]
 
-  for (const product of products) {
+  for (const product of [...healthyProducts, ...pastaProducts]) {
     await prisma.product.create({
       data: product,
     })
