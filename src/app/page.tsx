@@ -3,89 +3,59 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/store/cartStore'
-import { useUser } from '@/context/UserContext'
+import { useUser } from '@/contexts/UserContext'
+import { useCartAuth } from '@/hooks/useCartAuth'
 import {
   Box,
   Container,
   Typography,
   Card,
   CardContent,
-  Badge,
-  styled,
-  IconButton,
   TextField,
   InputAdornment,
   Button,
   Chip,
-  Divider
+  Avatar,
+  IconButton,
+  Stack,
+  Paper,
+  Skeleton,
+  Alert
 } from '@mui/material'
 import {
-  Star as StarIcon,
-  ShoppingCart as CartIcon,
   Search as SearchIcon,
+  Menu as MenuIcon,
+  FilterList as FilterIcon,
+  FavoriteBorder as FavoriteIcon,
+  Favorite as FavoriteFilledIcon,
+  Star as StarIcon,
   AccessTime as TimeIcon,
-  Store as StoreIcon,
-  AccountCircle as AccountCircleIcon,
-  LocationOn as LocationOnIcon
+  Add as AddIcon,
+  Restaurant as RestaurantIcon
 } from '@mui/icons-material'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { FreeMode } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/free-mode'
 import BottomNavbar from '@/components/BottomNavbar'
-import ClientOnly from '@/components/ClientOnly'
 import AppHeader from '@/components/AppHeader'
-import LoadingSpinner from '@/components/LoadingSpinner'
-
-// Styled Components
-const CategoryButton = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '8px',
-  cursor: 'pointer',
-  padding: '8px',
-  borderRadius: '16px',
-  transition: 'all 0.2s ease',
-  '&:hover': {
-    backgroundColor: '#F9FAFB',
-    transform: 'translateY(-2px)'
-  }
-}))
-
-const CategoryIcon = styled(Box)(({ theme }) => ({
-  width: '64px',
-  height: '64px',
-  borderRadius: '16px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '1.5rem',
-  fontWeight: 500,
-  transition: 'all 0.2s ease'
-}))
-
-const RestaurantCard = styled(Card)(({ theme }) => ({
-  marginBottom: '16px',
-  borderRadius: '16px',
-  overflow: 'hidden',
-  cursor: 'pointer',
-  transition: 'all 0.2s ease-in-out',
-  border: '1px solid #F3F4F6',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-  '&:hover': {
-    borderColor: '#E5E7EB',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    transform: 'translateY(-2px)'
-  }
-}))
+import ClientOnly from '@/components/ClientOnly'
 
 interface Category {
   id: string
   name: string
   slug: string
-  icon: string
-  _count: { products: number }
+  icon?: string
+  _count?: { products: number }
+}
+
+interface Product {
+  id: string
+  name: string
+  price: number
+  image?: string
+  description?: string
+  categoryId?: string
 }
 
 interface Restaurant {
@@ -99,482 +69,550 @@ interface Restaurant {
   rating: number
   deliveryTime?: string
   isOpen: boolean
-  products: Array<{
-    id: string
-    name: string
-    price: number
-  }>
+  products?: Product[]
 }
 
 export default function HomePage() {
   const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
+  const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [displayProducts, setDisplayProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const { totalItems } = useCartStore()
-  const { userData, isLoggedIn } = useUser()
-
-  // Category colors
-  const categoryColors = [
-    '#FFF4E6', '#E6F4FF', '#F6FFED', '#FFF1F0', 
-    '#F9F0FF', '#FFFBE6', '#E6FFFB', '#FEF2F0'
-  ]
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const [error, setError] = useState<string | null>(null)
+  const { totalItems, addItem } = useCartStore()
+  const { userData } = useUser()
+  
+  useCartAuth()
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [categoriesRes, restaurantsRes] = await Promise.all([
-          fetch('/api/categories'),
-          fetch('/api/restaurants')
-        ])
-        
-        const categoriesData = await categoriesRes.json()
-        const restaurantsData = await restaurantsRes.json()
-        
-        setCategories(categoriesData)
-        setRestaurants(restaurantsData.filter((restaurant: Restaurant) => restaurant.isOpen))
-      } catch (error) {
-        console.error('Error fetching data:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchData()
   }, [])
 
+  useEffect(() => {
+    filterProducts()
+  }, [selectedCategory, allProducts, searchQuery])
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Fetch categories and restaurants separately for better error handling
+      try {
+        const categoriesRes = await fetch('/api/categories')
+        if (categoriesRes.ok) {
+          const categoriesData = await categoriesRes.json()
+          if (Array.isArray(categoriesData)) {
+            setCategories(categoriesData)
+          }
+        }
+      } catch (error) {
+        console.error('Categories API error:', error)
+      }
+      
+      try {
+        const restaurantsRes = await fetch('/api/restaurants')
+        if (restaurantsRes.ok) {
+          const restaurantsData = await restaurantsRes.json()
+          if (Array.isArray(restaurantsData)) {
+            const openRestaurants = restaurantsData.filter((r: Restaurant) => r.isOpen)
+            setRestaurants(openRestaurants)
+            
+            // Extract all products from restaurants
+            const products: Product[] = []
+            openRestaurants.forEach((restaurant: Restaurant) => {
+              if (restaurant.products && Array.isArray(restaurant.products)) {
+                restaurant.products.forEach((product: Product) => {
+                  products.push({
+                    ...product,
+                    restaurantName: restaurant.name,
+                    restaurantId: restaurant.id
+                  } as Product & { restaurantName: string; restaurantId: string })
+                })
+              }
+            })
+            setAllProducts(products)
+          }
+        }
+      } catch (error) {
+        console.error('Restaurants API error:', error)
+      }
+      
+    } catch (error) {
+      console.error('Error fetching data:', error)
+      setError('เกิดข้อผิดพลาดในการโหลดข้อมูล')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filterProducts = () => {
+    let filtered = allProducts
+    
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(product => product.categoryId === selectedCategory)
+    }
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(query) ||
+        (product.description && product.description.toLowerCase().includes(query))
+      )
+    }
+    
+    setDisplayProducts(filtered.slice(0, 10)) // Show top 10
+  }
+
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+    }
+  }
+
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategory(categoryId)
+  }
+
+  const toggleFavorite = (productId: string) => {
+    setFavorites(prev => {
+      const newFavorites = new Set(prev)
+      if (newFavorites.has(productId)) {
+        newFavorites.delete(productId)
+      } else {
+        newFavorites.add(productId)
+      }
+      return newFavorites
+    })
+  }
+
+  const handleAddToCart = (product: Product & { restaurantName?: string }) => {
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+      categoryName: 'อาหาร',
+      restaurantName: product.restaurantName || 'ไม่ระบุร้าน'
+    })
+  }
+
   const getCategoryIcon = (categoryName: string) => {
-    switch (categoryName.toLowerCase()) {
-      case 'อาหารคาว':
-        return '🍛'
-      case 'อาหารหวาน':
-        return '🍰'
-      case 'เครื่องดื่ม':
-        return '🥤'
-      case 'อาหารเจ':
-        return '🥗'
-      case 'อาหารฟาสต์ฟู้ด':
-        return '🍔'
-      case 'อาหารสุขภาพ':
-        return '🥙'
-      default:
-        return '🍽️'
+    switch (categoryName?.toLowerCase()) {
+      case 'อาหารคาว': return '🍛'
+      case 'อาหารหวาน': return '🍰'
+      case 'เครื่องดื่ม': return '🥤'
+      case 'อาหารเจ': return '🥗'
+      case 'อาหารฟาสต์ฟู้ด': return '🍔'
+      case 'พิซซ่า': return '🍕'
+      default: return '🍽️'
     }
   }
 
   if (loading) {
     return (
-      <>
-        <LoadingSpinner fullScreen={true} showBottomNavbar={true} />
+      <Box sx={{ backgroundColor: '#FAFAFA', minHeight: '100vh', pb: 10 }}>
+        <Box sx={{ bgcolor: 'white', p: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Skeleton variant="circular" width={24} height={24} />
+            <Skeleton variant="text" width={100} height={24} />
+            <Skeleton variant="circular" width={40} height={40} />
+          </Box>
+          <Skeleton variant="rounded" width="100%" height={40} />
+        </Box>
+        <Container maxWidth="sm" sx={{ px: 2, py: 3 }}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+            {[1,2,3].map(i => (
+              <Skeleton key={i} variant="rounded" width={80} height={32} />
+            ))}
+          </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
+            {[1,2,3,4].map(i => (
+              <Card key={i}>
+                <Skeleton variant="rounded" width="100%" height={120} />
+                <CardContent>
+                  <Skeleton variant="text" width="80%" />
+                  <Skeleton variant="text" width="60%" />
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        </Container>
         <BottomNavbar />
-      </>
+      </Box>
     )
   }
 
   return (
-    <Box sx={{ backgroundColor: '#FAFAFA', minHeight: '100vh', pb: 12 }}>
+    <Box sx={{ backgroundColor: '#FAFAFA', minHeight: '100vh', pb: 10 }}>
       {/* Header */}
-      <ClientOnly>
-        <AppHeader showBackButton={false} />
-      </ClientOnly>
-      
-      <Container maxWidth="sm" sx={{ px: 2, py: 3 }}>
-        {/* Welcome Message */}
-        <ClientOnly fallback={
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mb: 0.5 }}>
-              สวัสดี! 👋
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#6B7280' }}>
-              มีอะไรอร่อยๆ ให้ทานบ้าง?
-            </Typography>
-          </Box>
-        }>
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mb: 0.5 }}>
-              สวัสดี{userData.name ? ` คุณ${userData.name}` : ''}! 👋
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#6B7280' }}>
-              {userData.address ? `📍 ${userData.address}` : 'มีอะไรอร่อยๆ ให้ทานบ้าง?'}
-            </Typography>
-          </Box>
-        </ClientOnly>
+      <AppHeader />
 
-        {/* Location Alert - แสดงเฉพาะเมื่อผู้ใช้ยังไม่ได้ตั้งค่า location */}
-        <ClientOnly>
-          {(!userData.latitude || !userData.longitude) && (
-            <Card sx={{ 
-              mb: 3, 
-              borderRadius: 3,
-              border: '1px solid #FED7AA',
-              bgcolor: '#FEF3C7',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-            }}>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                  <Box sx={{ 
-                    bgcolor: '#F59E0B',
-                    color: 'white',
-                    borderRadius: '50%',
-                    width: 40,
-                    height: 40,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    <LocationOnIcon />
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="subtitle2" sx={{ 
-                      fontWeight: 600, 
-                      color: '#92400E',
-                      mb: 1
-                    }}>
-                      📌 กำหนดตำแหน่งที่อยู่ของท่าน
-                    </Typography>
-                    <Typography variant="body2" sx={{ 
-                      color: '#A16207',
-                      mb: 2,
-                      lineHeight: 1.5
-                    }}>
-                      เพื่อให้สามารถจัดส่งอาหารได้อย่างแม่นยำและแนะนำร้านอาหารใกล้เคียงได้ดียิ่งขึ้น
-                    </Typography>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={() => router.push('/profile')}
-                      sx={{
-                        bgcolor: '#F59E0B',
-                        color: 'white',
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        borderRadius: 2,
-                        '&:hover': {
-                          bgcolor: '#D97706'
-                        }
-                      }}
-                    >
-                      ตั้งค่าตำแหน่ง
-                    </Button>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          )}
-        </ClientOnly>
-
-        {/* Search */}
-        <Box sx={{ mb: 4 }}>
+      {/* Search Section */}
+      <Box sx={{ bgcolor: 'white', px: 3, pb: 3, borderRadius: '0 0 20px 20px' }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <TextField
             fullWidth
-            placeholder="ค้นหาอาหาร ร้านค้า หรือหมวดหมู่..."
-            onClick={() => router.push('/search')}
+            placeholder="หาอาหารที่ชอบ..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ color: '#9CA3AF' }} />
+                  <SearchIcon sx={{ color: '#999', fontSize: 20 }} />
                 </InputAdornment>
-              ),
-              readOnly: true,
-              sx: {
-                backgroundColor: '#FFFFFF',
-                borderRadius: '12px',
-                '& .MuiOutlinedInput-notchedOutline': {
-                  border: '1px solid #E5E7EB'
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  border: '1px solid #D1D5DB'
-                },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  border: '2px solid #FFD700'
-                }
+              )
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                bgcolor: '#F8F9FA',
+                borderRadius: 2,
+                fontSize: '0.9rem',
+                '& fieldset': { border: 'none' },
+                height: 44
               }
             }}
           />
+          <IconButton 
+            sx={{ 
+              bgcolor: '#F8F9FA',
+              borderRadius: 2,
+              width: 44,
+              height: 44
+            }}
+          >
+            <FilterIcon sx={{ color: '#999' }} />
+          </IconButton>
         </Box>
+      </Box>
 
-        {/* Promotional Banner */}
-        <Box sx={{
-          borderRadius: '12px',
-          mb: 4,
-          position: 'relative',
-          overflow: 'hidden',
-          height: { xs: 160, sm: 220, md: 280 },
-          cursor: 'pointer',
-          transition: 'transform 0.2s ease-in-out',
-          '&:hover': {
-            transform: 'scale(1.02)'
-          }
-        }}>
-          <Box sx={{
-            background: '#FFFFFF',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column',
-            color: 'white',
-            borderRadius: '12px'
-          }}>
-            <img src="banner.webp" alt="Promotional Banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </Box>
-        </Box>
+      <Container maxWidth="sm" sx={{ px: 3, py: 3 }}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+            <Button 
+              onClick={fetchData} 
+              size="small" 
+              sx={{ ml: 2 }}
+            >
+              ลองใหม่
+            </Button>
+          </Alert>
+        )}
 
         {/* Categories */}
-        <Box sx={{ mb: 5 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, color: '#111827' }}>
-              หมวดหมู่อาหาร
-            </Typography>
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                cursor: 'pointer', 
-                fontWeight: 500, 
-                color: '#6B7280',
-                '&:hover': {
-                  color: '#374151'
-                }
-              }}
-              onClick={() => router.push('/categories')}
-            >
-              ดูทั้งหมด
-            </Typography>
-          </Box>
+        <Box sx={{ mb: 3 }}>
           <Swiper
             modules={[FreeMode]}
-            spaceBetween={12}
+            spaceBetween={8}
             slidesPerView="auto"
             freeMode={true}
-            grabCursor={true}
             style={{ paddingLeft: '0px', paddingRight: '0px' }}
           >
-            {categories.map((category, index) => (
-              <SwiperSlide key={category.slug} style={{ width: 'auto' }}>
-                <CategoryButton 
-                  onClick={() => router.push(`/categories/${encodeURIComponent(category.slug)}`)}
-                >
-                  <CategoryIcon sx={{ 
-                    backgroundColor: categoryColors[index % categoryColors.length], 
-                    border: '1px solid #E5E7EB',
+            <SwiperSlide style={{ width: 'auto' }}>
+              <Chip
+                label="ทั้งหมด"
+                onClick={() => handleCategorySelect('all')}
+                sx={{
+                  bgcolor: selectedCategory === 'all' ? '#FFD700' : '#F8F9FA',
+                  color: selectedCategory === 'all' ? '#333' : '#666',
+                  fontWeight: 500,
+                  fontSize: '0.85rem',
+                  height: 36,
+                  '&:hover': {
+                    bgcolor: selectedCategory === 'all' ? '#FFC107' : '#E9ECEF'
+                  }
+                }}
+              />
+            </SwiperSlide>
+            {categories.map((category) => (
+              <SwiperSlide key={category.id} style={{ width: 'auto' }}>
+                <Chip
+                  label={`${getCategoryIcon(category.name)} ${category.name}`}
+                  onClick={() => handleCategorySelect(category.id)}
+                  sx={{
+                    bgcolor: selectedCategory === category.id ? '#FFD700' : '#F8F9FA',
+                    color: selectedCategory === category.id ? '#333' : '#666',
+                    fontWeight: 500,
+                    fontSize: '0.85rem',
+                    height: 36,
                     '&:hover': {
-                      transform: 'scale(1.05)',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    },
-                    transition: 'all 0.2s ease'
-                  }}>
-                    {getCategoryIcon(category.name)}
-                  </CategoryIcon>
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      color: '#6B7280',
-                      fontWeight: 500,
-                      fontSize: '0.75rem',
-                      textAlign: 'center',
-                      maxWidth: '70px',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {category.name}
-                  </Typography>
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      color: '#9CA3AF',
-                      fontSize: '0.7rem',
-                      textAlign: 'center'
-                    }}
-                  >
-                    {category._count?.products || 0} รายการ
-                  </Typography>
-                </CategoryButton>
+                      bgcolor: selectedCategory === category.id ? '#FFC107' : '#E9ECEF'
+                    }
+                  }}
+                />
               </SwiperSlide>
             ))}
           </Swiper>
         </Box>
 
-        {/* Open Restaurants */}
-        <Box sx={{ mb: 5 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, color: '#111827' }}>
-              ร้านค้าที่เปิดอยู่ ({restaurants.length} ร้าน)
-            </Typography>
-            <Typography 
-              variant="body2" 
+        {/* Popular Food Items */}
+        <Box sx={{ mb: 4 }}>
+          {displayProducts.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
+              <Box sx={{ fontSize: '3rem', mb: 2 }}>🍽️</Box>
+              <Typography variant="h6" sx={{ color: '#666', mb: 1 }}>
+                ไม่พบอาหารที่ค้นหา
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#999' }}>
+                ลองเปลี่ยนหมวดหมู่หรือคำค้นหา
+              </Typography>
+            </Paper>
+          ) : (
+            <Box 
               sx={{ 
-                cursor: 'pointer', 
-                fontWeight: 500, 
-                color: '#6B7280',
-                '&:hover': {
-                  color: '#374151'
-                }
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 2
               }}
-              onClick={() => router.push('/restaurant')}
             >
-              ดูทั้งหมด
+              {displayProducts.map((product, index) => (
+                <Card 
+                  key={product.id}
+                  sx={{ 
+                    borderRadius: 3,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s',
+                    '&:hover': { transform: 'translateY(-2px)' }
+                  }}
+                >
+                  {/* Food Image */}
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      height: 120,
+                      background: index % 2 === 0 
+                        ? 'linear-gradient(135deg, #FF6B6B, #FF8E8E)' 
+                        : 'linear-gradient(135deg, #4ECDC4, #44A08D)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {product.image ? (
+                      <img 
+                        src={product.image} 
+                        alt={product.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    ) : (
+                      <Typography sx={{ fontSize: '3rem' }}>
+                        {index % 3 === 0 ? '🍖' : index % 3 === 1 ? '🍝' : '🥗'}
+                      </Typography>
+                    )}
+                    
+                    {/* Favorite Button */}
+                    <IconButton
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleFavorite(product.id)
+                      }}
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        bgcolor: 'rgba(255,255,255,0.9)',
+                        width: 32,
+                        height: 32,
+                        '&:hover': { bgcolor: 'white' }
+                      }}
+                    >
+                      {favorites.has(product.id) ? (
+                        <FavoriteFilledIcon sx={{ color: '#FF6B6B', fontSize: 18 }} />
+                      ) : (
+                        <FavoriteIcon sx={{ color: '#999', fontSize: 18 }} />
+                      )}
+                    </IconButton>
+                  </Box>
+
+                  <CardContent sx={{ p: 2 }}>
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600,
+                        color: '#333',
+                        mb: 0.5,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {product.name}
+                    </Typography>
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: '#666',
+                        display: 'block',
+                        mb: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {(product as any).restaurantName || 'ร้านอาหาร'}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography 
+                        variant="h6" 
+                        sx={{ 
+                          fontWeight: 700,
+                          color: '#333',
+                          fontSize: '1rem'
+                        }}
+                      >
+                        ฿{product.price}
+                      </Typography>
+                      <IconButton 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleAddToCart(product as any)
+                        }}
+                        size="small"
+                        sx={{ 
+                          bgcolor: '#FFD700',
+                          width: 28,
+                          height: 28,
+                          '&:hover': { bgcolor: '#FFC107' }
+                        }}
+                      >
+                        <AddIcon sx={{ fontSize: 16, color: '#333' }} />
+                      </IconButton>
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
+          )}
+        </Box>
+
+        {/* Favorite Restaurants */}
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333' }}>
+              Favorite Restaurants
             </Typography>
+            <Button 
+              onClick={() => router.push('/restaurant')}
+              sx={{ 
+                color: '#666',
+                fontWeight: 500,
+                textTransform: 'none',
+                fontSize: '0.9rem'
+              }}
+            >
+              See all
+            </Button>
           </Box>
 
           {restaurants.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <StoreIcon sx={{ fontSize: 60, color: '#9CA3AF', mb: 2 }} />
-              <Typography variant="h6" sx={{ color: '#6B7280', mb: 1 }}>
-                ไม่มีร้านค้าเปิดอยู่
+            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
+              <Box sx={{ fontSize: '3rem', mb: 2 }}>🏪</Box>
+              <Typography variant="body1" sx={{ color: '#666' }}>
+                ไม่มีร้านอาหารในขณะนี้
               </Typography>
-              <Typography variant="body2" sx={{ color: '#9CA3AF' }}>
-                กรุณาลองใหม่อีกครั้งในภายหลัง
-              </Typography>
-            </Box>
+            </Paper>
           ) : (
-            <Card sx={{ 
-              borderRadius: '16px',
-              overflow: 'hidden',
-              border: '1px solid #F3F4F6',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-            }}>
-              {restaurants.map((restaurant, index) => (
-                <Box key={restaurant.id}>
-                  <Box 
-                    onClick={() => router.push(`/restaurant/${restaurant.slug}`)}
+            <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1 }}>
+              {restaurants.slice(0, 3).map((restaurant) => (
+                <Card 
+                  key={restaurant.id}
+                  onClick={() => router.push(`/restaurant/${restaurant.slug}`)}
+                  sx={{
+                    minWidth: 200,
+                    borderRadius: 3,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    transition: 'transform 0.2s',
+                    '&:hover': { transform: 'translateY(-2px)' }
+                  }}
+                >
+                  <Box
                     sx={{
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease-in-out',
-                      '&:hover': {
-                        backgroundColor: '#F9FAFB'
-                      }
+                      height: 100,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      position: 'relative'
                     }}
                   >
-                    <Box sx={{ display: 'flex', gap: 3, p: 3 }}>
-                      {/* Restaurant Image */}
-                      <Box
-                        sx={{
-                          width: 100,
-                          height: 100,
-                          borderRadius: '12px',
-                          overflow: 'hidden',
-                          flexShrink: 0,
-                          backgroundColor: '#F8F9FA',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
+                    {restaurant.image ? (
+                      <img 
+                        src={restaurant.image} 
+                        alt={restaurant.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
                         }}
-                      >
-                        {restaurant.image ? (
-                          <img 
-                            src={restaurant.image} 
-                            alt={restaurant.name}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover'
-                            }}
-                          />
-                        ) : (
-                          <Box sx={{
-                            fontSize: '2.5rem',
-                            color: '#9CA3AF'
-                          }}>
-                            🏪
-                          </Box>
-                        )}
-                      </Box>
-
-                      {/* Restaurant Info */}
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                          <Typography 
-                            variant="h6" 
-                            sx={{ 
-                              fontWeight: 600, 
-                              color: '#111827',
-                              fontSize: '1rem',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              flex: 1,
-                              mr: 1
-                            }}
-                          >
-                            {restaurant.name}
-                          </Typography>
-                          <Chip
-                            size="small"
-                            label="เปิด"
-                            sx={{
-                              bgcolor: '#10B981',
-                              color: 'white',
-                              fontSize: '0.7rem',
-                              height: 20,
-                              '& .MuiChip-label': {
-                                px: 1
-                              }
-                            }}
-                          />
-                        </Box>
-
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: 0.3,
-                            backgroundColor: '#FEF3C7',
-                            px: 1,
-                            py: 0.3,
-                            borderRadius: '6px'
-                          }}>
-                            <StarIcon sx={{ fontSize: '0.8rem', color: '#D97706' }} />
-                            <Typography variant="caption" sx={{ color: '#D97706', fontWeight: 500, fontSize: '0.7rem' }}>
-                              {restaurant.rating.toFixed(1)}
-                            </Typography>
-                          </Box>
-                          {restaurant.deliveryTime && (
-                            <>
-                              <TimeIcon sx={{ fontSize: '0.8rem', color: '#6B7280' }} />
-                              <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.7rem' }}>
-                                {restaurant.deliveryTime}
-                              </Typography>
-                            </>
-                          )}
-                        </Box>
-
-                        {restaurant.description && (
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              color: '#6B7280', 
-                              fontSize: '0.8rem',
-                              mb: 1,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            {restaurant.description}
-                          </Typography>
-                        )}
-
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            color: '#9CA3AF',
-                            fontSize: '0.75rem'
-                          }}
-                        >
-                          {restaurant.products.length} เมนู
-                        </Typography>
-                      </Box>
-                    </Box>
+                      />
+                    ) : (
+                      <RestaurantIcon sx={{ fontSize: '2.5rem', color: 'white' }} />
+                    )}
                   </Box>
-                  {index < restaurants.length - 1 && (
-                    <Divider sx={{ borderColor: '#F3F4F6' }} />
-                  )}
-                </Box>
+                  
+                  <CardContent sx={{ p: 2 }}>
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600,
+                        color: '#333',
+                        mb: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {restaurant.name}
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {[...Array(5)].map((_, i) => (
+                          <StarIcon 
+                            key={i} 
+                            sx={{ 
+                              fontSize: 12, 
+                              color: i < Math.floor(restaurant.rating) ? '#FFD700' : '#E0E0E0' 
+                            }} 
+                          />
+                        ))}
+                      </Box>
+                      <Typography variant="caption" sx={{ color: '#666', fontWeight: 500 }}>
+                        {restaurant.rating.toFixed(1)}
+                      </Typography>
+                    </Box>
+                    
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: '#999',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        display: 'block'
+                      }}
+                    >
+                      {restaurant.address || 'Bangkok, Thailand'}
+                    </Typography>
+                  </CardContent>
+                </Card>
               ))}
-            </Card>
+            </Box>
           )}
         </Box>
       </Container>
@@ -582,4 +620,4 @@ export default function HomePage() {
       <BottomNavbar />
     </Box>
   )
-} 
+}

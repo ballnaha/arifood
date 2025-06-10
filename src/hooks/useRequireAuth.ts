@@ -1,5 +1,5 @@
 import { useRouter } from 'next/navigation'
-import { useUser } from '@/context/UserContext'
+import { useUser } from '@/contexts/UserContext'
 
 interface UseRequireAuthOptions {
   redirectTo?: string
@@ -7,8 +7,10 @@ interface UseRequireAuthOptions {
 }
 
 export function useRequireAuth(options: UseRequireAuthOptions = {}) {
-  const { isLoggedIn } = useUser()
+  const { userData } = useUser()
   const router = useRouter()
+  
+  const isLoggedIn = !!userData
   
   const { 
     redirectTo = '/login', 

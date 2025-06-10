@@ -64,6 +64,8 @@ export default function AddToCartButton({
 
         if (success && onClick) {
           onClick()
+        } else if (!success) {
+          console.log('🛒 ไม่สามารถเพิ่มสินค้าลงตะกร้าได้ - อาจต้อง login ก่อน')
         }
       } catch (error) {
         console.error('Error adding to cart:', error)

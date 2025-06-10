@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
               description: restaurantData.description,
               address: restaurantData.address,
               phone: restaurantData.phone,
-              email: restaurantData.email
+              email: restaurantData.email,
+              status: 'PENDING'  // ร้านใหม่ต้องรออนุมัติ
             }
           }
         },
@@ -140,6 +141,12 @@ export async function PUT(request: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
+        phone: user.phone,
+        address: user.address,
+        latitude: user.latitude,
+        longitude: user.longitude,
+        lineUserId: user.lineUserId,
+        avatar: user.avatar, // เพิ่ม avatar field
         role: user.role,
         restaurant: user.restaurant
       },

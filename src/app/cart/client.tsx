@@ -8,6 +8,14 @@ import {
   Button,
   IconButton,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Alert,
+  Snackbar,
+  CircularProgress
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -26,10 +34,108 @@ import {
 } from 'react-swipeable-list';
 import 'react-swipeable-list/dist/styles.css';
 import RestaurantOrderInfo from '@/components/RestaurantOrderInfo';
+import { useState } from 'react';
+
+interface CustomerInfo {
+  name: string;
+  phone: string;
+  address: string;
+}
 
 export default function CartClient() {
   const router = useRouter();
   const { items, restaurant, totalItems, totalPrice, removeItem, clearCart } = useCartStore();
+  
+  // States for order process
+  const [showOrderDialog, setShowOrderDialog] = useState(false);
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
+    name: '',
+    phone: '',
+    address: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Handle input changes
+  const handleCustomerInfoChange = (field: keyof CustomerInfo, value: string) => {
+    setCustomerInfo(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle order submission
+  const handlePlaceOrder = async () => {
+    if (!restaurant || items.length === 0) return;
+
+    // Validate customer info
+    if (!customerInfo.name || !customerInfo.phone || !customerInfo.address) {
+      setErrorMessage('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+      setShowError(true);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Prepare order data
+      const orderData = {
+        customerInfo,
+        restaurantId: restaurant.id,
+        items: items.map(item => ({
+          productId: item.id.split('_')[0], // Extract product ID from cart item ID
+          quantity: item.quantity,
+          price: item.price,
+          instructions: item.instructions
+        })),
+        subtotalAmount: totalPrice,
+        deliveryFee: 30,
+        totalAmount: totalPrice + 30,
+        paymentMethod: 'CASH',
+        specialInstructions: ''
+      };
+
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to place order');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Clear cart
+        clearCart();
+        
+        // Close dialog
+        setShowOrderDialog(false);
+        
+        // Show success message
+        setShowSuccess(true);
+        
+        // Redirect to orders page after delay
+        setTimeout(() => {
+          router.push('/orders');
+        }, 2000);
+      } else {
+        throw new Error(result.message || 'Failed to place order');
+      }
+    } catch (error) {
+      console.error('Error placing order:', error);
+      setErrorMessage('เกิดข้อผิดพลาดในการสั่งอาหาร กรุณาลองใหม่อีกครั้ง');
+      setShowError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (items.length === 0) {
     return (
@@ -49,23 +155,21 @@ export default function CartClient() {
         </Box>
 
         {/* Empty Cart */}
-        <Container maxWidth="sm" sx={{ px: 2, py: 8 }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <ShoppingCartIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              ตะกร้าของคุณว่างเปล่า
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              เริ่มเลือกสินค้าที่คุณชอบกันเลย
-            </Typography>
-            <Button
-              variant="contained"
-              onClick={() => router.push('/')}
-              sx={{ px: 4 }}
-            >
-              เริ่มช้อปปิ้ง
-            </Button>
-          </Box>
+        <Container maxWidth="sm" sx={{ px: 2, py: 8, textAlign: 'center' }}>
+          <ShoppingCartIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" gutterBottom>
+            ตะกร้าสินค้าว่างเปล่า
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            เพิ่มอาหารลงในตะกร้าเพื่อทำการสั่งซื้อ
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => router.push('/')}
+            sx={{ borderRadius: '12px' }}
+          >
+            เลือกร้านอาหาร
+          </Button>
         </Container>
 
         <BottomNavbar />
@@ -111,7 +215,7 @@ export default function CartClient() {
         {/* Cart Items */}
         <SwipeableList type={ListType.IOS}>
           {items.map((item) => {
-            const trailingActions = () => (
+            const itemTrailingActions = (
               <TrailingActions>
                 <SwipeAction
                   onClick={() => removeItem(item.id)}
@@ -142,79 +246,71 @@ export default function CartClient() {
             return (
               <SwipeableListItem
                 key={item.id}
-                trailingActions={trailingActions()}
+                trailingActions={itemTrailingActions}
+                className="swipe-item"
               >
-                <Box sx={{ mb: 1, width: '100%' }}>
+                <Box sx={{ py: 1 }}>
                   <Card sx={{ 
                     borderRadius: '16px',
-                    overflow: 'hidden',
-                    border: '1px solid #F0F0F0',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                    transition: 'all 0.2s ease',
+                    boxShadow: 'none',
+                    border: '1px solid',
+                    borderColor: 'divider',
                     '&:hover': {
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                      borderColor: '#E0E0E0'
+                      boxShadow: 1
                     }
                   }}>
                     <CardContent sx={{ p: 2 }}>
-                      <Box sx={{ display: 'flex', gap: 3 }}>
-                        {/* Product Image */}
-                        <Box
-                          sx={{
-                            width: 100,
-                            height: 100,
-                            borderRadius: '12px',
+                      <Box sx={{ display: 'flex', gap: 2 }}>
+                        {/* Image */}
+                        {item.image && (
+                          <Box sx={{ 
+                            width: 80, 
+                            height: 80, 
+                            borderRadius: '12px', 
                             overflow: 'hidden',
                             flexShrink: 0,
-                            position: 'relative',
-                            backgroundColor: '#F8F9FA',
-                          }}
-                        >
-                          {item.image ? (
+                            bgcolor: 'grey.100'
+                          }}>
                             <img 
                               src={item.image} 
                               alt={item.name}
                               style={{
                                 width: '100%',
                                 height: '100%',
-                                objectFit: 'cover',
+                                objectFit: 'cover'
                               }}
                             />
-                          ) : (
-                            <Box sx={{
-                              width: '100%',
-                              height: '100%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '2.5rem',
-                              color: '#CCCCCC'
-                            }}>
-                              🍽️
-                            </Box>
-                          )}
-                          
-                          
-                        </Box>
-
-                        {/* Product Info */}
-                        <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
-                          <Box sx={{ mb: 1 }}>
-                            <Typography variant="h6" fontWeight={600} sx={{ color: '#1A1A1A', lineHeight: 1.3 }}>
-                              {item.name}
-                            </Typography>
                           </Box>
-                          
-                          {/* Add-ons */}
+                        )}
+
+                        {/* Content */}
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          {/* Name */}
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, lineHeight: 1.3 }}>
+                            {item.name}
+                          </Typography>
+
+                          {/* Category */}
+                          <Typography variant="caption" sx={{ 
+                            color: '#888888', 
+                            fontSize: '0.75rem',
+                            display: 'block',
+                            mb: 1
+                          }}>
+                            {item.categoryName}
+                          </Typography>
+
+                          {/* Extras */}
                           {item.extras && (
                             <Box sx={{ mb: 1.5 }}>
                               <Typography variant="caption" sx={{ color: '#888888', fontWeight: 500, display: 'block', mb: 0.5 }}>
                                 เพิ่มเติม:
                               </Typography>
                               <Typography variant="body2" sx={{ 
-                                color: '#4A90E2', 
+                                color: '#666666', 
                                 fontSize: '0.9rem',
-                                bgcolor: '#F0F7FF',
+                                fontStyle: 'italic',
+                                bgcolor: '#FAFAFA',
                                 padding: '4px 8px',
                                 borderRadius: '6px',
                                 display: 'inline-block'
@@ -264,7 +360,7 @@ export default function CartClient() {
         </SwipeableList>
 
         {/* Summary */}
-        <Card sx={{ mt: 2 }}>
+        <Card sx={{ borderRadius: '16px', mt: 3 }}>
           <CardContent sx={{ p: 2 }}>
             <Typography variant="h6" fontWeight={600} gutterBottom>
               สรุปคำสั่งซื้อ
@@ -293,6 +389,7 @@ export default function CartClient() {
               variant="contained"
               fullWidth
               size="large"
+              onClick={() => setShowOrderDialog(true)}
               sx={{
                 py: 1.5,
                 fontSize: '1rem',
@@ -305,6 +402,96 @@ export default function CartClient() {
           </CardContent>
         </Card>
       </Container>
+
+      {/* Order Dialog */}
+      <Dialog 
+        open={showOrderDialog} 
+        onClose={() => setShowOrderDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          ข้อมูลการสั่งซื้อ
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="ชื่อผู้สั่ง"
+              value={customerInfo.name}
+              onChange={(e) => handleCustomerInfoChange('name', e.target.value)}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="เบอร์โทรศัพท์"
+              value={customerInfo.phone}
+              onChange={(e) => handleCustomerInfoChange('phone', e.target.value)}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="ที่อยู่จัดส่ง"
+              value={customerInfo.address}
+              onChange={(e) => handleCustomerInfoChange('address', e.target.value)}
+              margin="normal"
+              multiline
+              rows={3}
+              required
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button 
+            onClick={() => setShowOrderDialog(false)}
+            disabled={loading}
+          >
+            ยกเลิก
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handlePlaceOrder}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={20} /> : null}
+          >
+            {loading ? 'กำลังสั่งซื้อ...' : 'ยืนยันการสั่งซื้อ'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Success Snackbar */}
+      <Snackbar
+        open={showSuccess}
+        autoHideDuration={6000}
+        onClose={() => setShowSuccess(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setShowSuccess(false)}
+          severity="success"
+          sx={{ width: '100%' }}
+        >
+          สั่งอาหารสำเร็จ! ร้านอาหารได้รับการแจ้งเตือนแล้ว
+        </Alert>
+      </Snackbar>
+
+      {/* Error Snackbar */}
+      <Snackbar
+        open={showError}
+        autoHideDuration={6000}
+        onClose={() => setShowError(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setShowError(false)}
+          severity="error"
+          sx={{ width: '100%' }}
+        >
+          {errorMessage}
+        </Alert>
+      </Snackbar>
 
       <BottomNavbar />
     </Box>

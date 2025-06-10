@@ -6,6 +6,29 @@ import { useCartStore } from '@/store/cartStore'
 import { useRestaurantDialog } from '@/context/RestaurantDialogContext'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import BottomNavbar from '@/components/BottomNavbar'
+import {
+  Box,
+  Container,
+  Typography,
+  Card,
+  CardContent,
+  CardMedia,
+  Button,
+  Chip,
+  IconButton,
+  Badge
+} from '@mui/material'
+import {
+  ArrowBack as ArrowBackIcon,
+  Star as StarIcon,
+  AccessTime as TimeIcon,
+  LocationOn as LocationOnIcon,
+  Phone as PhoneIcon,
+  Email as EmailIcon,
+  ShoppingCart as CartIcon,
+  Discount as DiscountIcon
+} from '@mui/icons-material'
 
 interface Restaurant {
   id: string
@@ -129,186 +152,384 @@ export default function RestaurantPage() {
 
   if (!restaurant) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">❌</div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            ไม่พบร้านค้า
-          </h3>
-          <p className="text-gray-600 mb-4">
-            ร้านค้าที่คุณค้นหาไม่มีอยู่ในระบบ
-          </p>
-          <button
-            onClick={() => router.push('/restaurant')}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg font-medium"
-          >
-            กลับไปหน้าร้านค้า
-          </button>
-        </div>
-      </div>
+      <Box sx={{ backgroundColor: '#FAFAFA', minHeight: '100vh', pb: 12 }}>
+        <Container maxWidth="sm" sx={{ px: 2, py: 8 }}>
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography sx={{ fontSize: '4rem', mb: 2 }}>❌</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: '#111827', mb: 2 }}>
+              ไม่พบร้านค้า
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#6B7280', mb: 4 }}>
+              ร้านค้าที่คุณค้นหาไม่มีอยู่ในระบบ
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={() => router.push('/restaurant')}
+              sx={{
+                bgcolor: '#FFD700',
+                color: '#000',
+                fontWeight: 600,
+                '&:hover': { bgcolor: '#FFC107' }
+              }}
+            >
+              กลับไปหน้าร้านค้า
+            </Button>
+          </Box>
+        </Container>
+        <BottomNavbar />
+      </Box>
     )
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Restaurant Header */}
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 mb-8">
-        <div className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+    <Box sx={{ backgroundColor: '#FAFAFA', minHeight: '100vh', pb: 12 }}>
+      {/* Header */}
+      <Box sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Container maxWidth="sm" sx={{ px: 2, py: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton onClick={() => router.back()}>
+              <ArrowBackIcon />
+            </IconButton>
+            <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
+              {restaurant.name}
+            </Typography>
+          </Box>
+        </Container>
+      </Box>
+
+      <Container maxWidth="sm" sx={{ px: 0, py: 0 }}>
+        {/* Restaurant Cover Image */}
+        {restaurant.image && (
+          <Box
+            sx={{
+              width: '100%',
+              height: 200,
+              backgroundImage: `url(${restaurant.image})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              position: 'relative'
+            }}
+          >
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+                p: 3,
+                color: 'white'
+              }}
+            >
+              <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
                 {restaurant.name}
-              </h1>
-              <p className="text-gray-600 mb-2">
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
                 โดย {restaurant.owner.name}
-              </p>
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
+        <Box sx={{ px: 2, py: 2 }}>
+          {/* Restaurant Info Card */}
+          <Card sx={{ borderRadius: 3, mb: 3, overflow: 'visible' }}>
+            <CardContent sx={{ p: 3 }}>
+              {!restaurant.image && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: '#111827', mb: 1 }}>
+                    {restaurant.name}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#6B7280' }}>
+                    โดย {restaurant.owner.name}
+                  </Typography>
+                </Box>
+              )}
+
               {restaurant.description && (
-                <p className="text-gray-700 mb-4">
+                <Typography variant="body1" sx={{ color: '#374151', mb: 2, lineHeight: 1.6 }}>
                   {restaurant.description}
-                </p>
+                </Typography>
               )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="bg-yellow-100 text-yellow-800 text-sm font-medium px-3 py-1 rounded-full">
-                ⭐ {restaurant.rating.toFixed(1)}
-              </span>
-              {restaurant.deliveryTime && (
-                <span className="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full">
-                  🕒 {restaurant.deliveryTime}
-                </span>
-              )}
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-            {restaurant.address && (
-              <div className="flex items-center">
-                <span className="mr-2">📍</span>
-                {restaurant.address}
-              </div>
-            )}
-            {restaurant.phone && (
-              <div className="flex items-center">
-                <span className="mr-2">📞</span>
-                {restaurant.phone}
-              </div>
-            )}
-            {restaurant.email && (
-              <div className="flex items-center">
-                <span className="mr-2">📧</span>
-                {restaurant.email}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Menu Section */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">
-          เมนูอาหาร ({products.length} รายการ)
-        </h2>
-      </div>
-
-      {products.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-8 text-center">
-          <div className="text-6xl mb-4">🍽️</div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            ยังไม่มีเมนูอาหาร
-          </h3>
-          <p className="text-gray-600">
-            ร้านนี้ยังไม่ได้เพิ่มเมนูอาหาร
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => {
-            const quantity = getItemQuantity(product.id)
-            
-            return (
-              <div 
-                key={product.id} 
-                onClick={() => router.push(`/restaurant/${restaurant.slug}/product/${product.slug}`)}
-                className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-              >
-                <div className="relative">
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-48 object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                      <span className="text-4xl">🍽️</span>
-                    </div>
-                  )}
-                  {product.originalPrice && (
-                    <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                      ลด {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
-                    </div>
-                  )}
-                </div>
-                
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-2 text-lg">
-                    {product.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-2">
-                    {product.category.name}
-                  </p>
-                  {product.description && (
-                    <p className="text-sm text-gray-500 mb-3">
-                      {product.description}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                      {product.originalPrice && (
-                        <span className="text-sm text-gray-500 line-through">
-                          ฿{product.originalPrice}
-                        </span>
-                      )}
-                      <span className="text-lg font-bold text-yellow-600">
-                        ฿{product.price}
-                      </span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <span className="mr-1">⭐</span>
-                      {product.rating.toFixed(1)}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/restaurant/${restaurant.slug}/product/${product.slug}`);
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                <Chip
+                  icon={<StarIcon />}
+                  label={restaurant.rating.toFixed(1)}
+                  sx={{
+                    bgcolor: '#FEF3C7',
+                    color: '#D97706',
+                    fontWeight: 600
+                  }}
+                />
+                {restaurant.deliveryTime && (
+                  <Chip
+                    icon={<TimeIcon />}
+                    label={restaurant.deliveryTime}
+                    sx={{
+                      bgcolor: '#DCFCE7',
+                      color: '#16A34A',
+                      fontWeight: 600
                     }}
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
-                  >
-                    {quantity > 0 ? (
-                      <span>ดูรายละเอียด ({quantity} ในตะกร้า)</span>
-                    ) : (
-                      <span>ดูรายละเอียด</span>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+                  />
+                )}
+              </Box>
 
-      {/* Back Button */}
-      <div className="mt-8 text-center">
-        <button
-          onClick={() => router.push('/restaurant')}
-          className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg font-medium"
-        >
-          ← กลับไปหน้าร้านค้า
-        </button>
-      </div>
-    </div>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {restaurant.address && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <LocationOnIcon sx={{ fontSize: '1rem', color: '#6B7280' }} />
+                    <Typography variant="body2" sx={{ color: '#6B7280' }}>
+                      {restaurant.address}
+                    </Typography>
+                  </Box>
+                )}
+                {restaurant.phone && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PhoneIcon sx={{ fontSize: '1rem', color: '#6B7280' }} />
+                    <Typography variant="body2" sx={{ color: '#6B7280' }}>
+                      {restaurant.phone}
+                    </Typography>
+                  </Box>
+                )}
+                {restaurant.email && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <EmailIcon sx={{ fontSize: '1rem', color: '#6B7280' }} />
+                    <Typography variant="body2" sx={{ color: '#6B7280' }}>
+                      {restaurant.email}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+
+          {/* Menu Section */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mb: 3 }}>
+              เมนูอาหาร ({products.length} รายการ)
+            </Typography>
+          </Box>
+
+          {products.length === 0 ? (
+            <Card sx={{ borderRadius: 3, textAlign: 'center', p: 4 }}>
+              <Typography sx={{ fontSize: '4rem', mb: 2 }}>🍽️</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: '#111827', mb: 1 }}>
+                ยังไม่มีเมนูอาหาร
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6B7280' }}>
+                ร้านนี้ยังไม่ได้เพิ่มเมนูอาหาร
+              </Typography>
+            </Card>
+          ) : (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              {products.map((product) => {
+                const quantity = getItemQuantity(product.id)
+                
+                return (
+                  <Box key={product.id} sx={{ width: 'calc(50% - 8px)' }}>
+                    <Card
+                      sx={{
+                        borderRadius: 3,
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease-in-out',
+                        border: '1px solid #F3F4F6',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                        '&:hover': {
+                          borderColor: '#E5E7EB',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                          transform: 'translateY(-2px)'
+                        }
+                      }}
+                      onClick={() => router.push(`/restaurant/${restaurant.slug}/product/${product.slug}`)}
+                    >
+                      <CardMedia
+                        sx={{
+                          height: 120,
+                          position: 'relative',
+                          backgroundColor: '#F8F9FA'
+                        }}
+                      >
+                        {product.image ? (
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              width: '100%',
+                              height: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '2.5rem'
+                            }}
+                          >
+                            🍽️
+                          </Box>
+                        )}
+                        {product.originalPrice && (
+                          <Chip
+                            icon={<DiscountIcon />}
+                            label={`ลด ${Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%`}
+                            size="small"
+                            sx={{
+                              position: 'absolute',
+                              top: 8,
+                              right: 8,
+                              bgcolor: '#EF4444',
+                              color: 'white',
+                              fontSize: '0.7rem',
+                              height: 24
+                            }}
+                          />
+                        )}
+                      </CardMedia>
+                      
+                      <CardContent sx={{ p: 2 }}>
+                        <Typography 
+                          variant="body1" 
+                          sx={{ 
+                            fontWeight: 600, 
+                            color: '#111827',
+                            fontSize: '0.9rem',
+                            mb: 0.5,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {product.name}
+                        </Typography>
+                        
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: '#6B7280',
+                            fontSize: '0.75rem',
+                            display: 'block',
+                            mb: 1
+                          }}
+                        >
+                          {product.category.name}
+                        </Typography>
+
+                        {product.description && (
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              color: '#9CA3AF',
+                              fontSize: '0.7rem',
+                              display: 'block',
+                              mb: 1,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {product.description}
+                          </Typography>
+                        )}
+                        
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                          <Box>
+                            {product.originalPrice && (
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: '#9CA3AF',
+                                  textDecoration: 'line-through',
+                                  fontSize: '0.7rem',
+                                  display: 'block'
+                                }}
+                              >
+                                ฿{product.originalPrice}
+                              </Typography>
+                            )}
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                fontWeight: 700, 
+                                color: '#D97706',
+                                fontSize: '0.9rem'
+                              }}
+                            >
+                              ฿{product.price}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                            <StarIcon sx={{ fontSize: '0.8rem', color: '#D97706' }} />
+                            <Typography variant="caption" sx={{ color: '#D97706', fontSize: '0.7rem' }}>
+                              {product.rating.toFixed(1)}
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        <Button
+                          fullWidth
+                          variant="contained"
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/restaurant/${restaurant.slug}/product/${product.slug}`);
+                          }}
+                          sx={{
+                            bgcolor: '#FFD700',
+                            color: '#000',
+                            fontWeight: 600,
+                            fontSize: '0.75rem',
+                            textTransform: 'none',
+                            borderRadius: 2,
+                            py: 1,
+                            '&:hover': { bgcolor: '#FFC107' }
+                          }}
+                        >
+                          {quantity > 0 ? (
+                            <Badge badgeContent={quantity} color="error">
+                              <CartIcon sx={{ fontSize: '1rem', mr: 0.5 }} />
+                              ดูรายละเอียด
+                            </Badge>
+                          ) : (
+                            'ดูรายละเอียด'
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </Box>
+                )
+              })}
+            </Box>
+          )}
+
+          {/* Back Button */}
+          <Box sx={{ textAlign: 'center', mt: 4, mb: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={() => router.push('/restaurant')}
+              sx={{
+                color: '#FFD700',
+                borderColor: '#FFD700',
+                fontWeight: 600,
+                '&:hover': { 
+                  borderColor: '#FFC107',
+                  backgroundColor: 'rgba(255, 215, 0, 0.04)'
+                }
+              }}
+            >
+              ← กลับไปหน้าร้านค้า
+            </Button>
+          </Box>
+        </Box>
+      </Container>
+
+      <BottomNavbar />
+    </Box>
   )
 } 

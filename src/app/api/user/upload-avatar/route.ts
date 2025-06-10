@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@/generated/prisma'
+import { PrismaClient } from '@prisma/client'
 import { writeFile, unlink } from 'fs/promises'
 import path from 'path'
 import { randomUUID } from 'crypto'

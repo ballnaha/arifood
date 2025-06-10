@@ -36,7 +36,9 @@ interface UserContextType {
 const defaultUserData: UserData = {
   name: '',
   phone: '',
-  address: ''
+  address: '',
+  email: '',
+  avatar: ''
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
@@ -47,83 +49,78 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [hasMounted, setHasMounted] = useState(false)
 
-  // ป้องกัน hydration error
+  // ป้องกัน hydration error - ต้องทำให้ state เริ่มต้นเหมือนกันระหว่าง server และ client
   useEffect(() => {
     setHasMounted(true)
   }, [])
 
-  // โหลดข้อมูลจาก localStorage เมื่อ component mount
+  // โหลดข้อมูลจาก localStorage หลังจาก mount เท่านั้น
   useEffect(() => {
     if (!hasMounted) return
 
-    const savedData = localStorage.getItem('user_profile')
-    const loginStatus = localStorage.getItem('user_logged_in')
-    
-    if (savedData) {
-      try {
+    try {
+      const savedData = localStorage.getItem('user_profile')
+      const loginStatus = localStorage.getItem('user_logged_in')
+      
+      if (savedData) {
         const parsedData = JSON.parse(savedData)
-        
-        // เฉพาะการโหลดครั้งแรกเท่านั้น ไม่ clear ข้อมูลที่เพิ่งอัพเดต
-        if (loginStatus === 'true' && !parsedData.hasOwnProperty('lineUserId') && parsedData.name === '') {
-          console.log('🔧 ตรวจพบข้อมูลเก่าที่ว่างเปล่าจากก่อนการอัพเดต - กำลัง clear localStorage')
-          localStorage.removeItem('user_profile')
-          localStorage.removeItem('user_logged_in')
-          setIsLoggedIn(false)
-          setUserData(defaultUserData)
-          setIsDataLoaded(true)
-          return
-        }
-        
         setUserData(parsedData)
-      } catch (error) {
-        console.error('Error parsing saved user data:', error)
       }
-    }
-    
-    if (loginStatus === 'true' && isLoggedIn !== false) {
-      setIsLoggedIn(true)
+      
+      if (loginStatus === 'true') {
+        setIsLoggedIn(true)
+      }
+    } catch (error) {
+      console.error('Error loading user data from localStorage:', error)
+      // Clear corrupted data
+      localStorage.removeItem('user_profile')
+      localStorage.removeItem('user_logged_in')
     }
     
     setIsDataLoaded(true)
   }, [hasMounted])
 
-  // ตรวจสอบ login status จากข้อมูล userData (สำหรับกรณีที่มีข้อมูลแต่ isLoggedIn ยัง false)
+  // ตรวจสอบ login status จากข้อมูล userData
   useEffect(() => {
-    if (isDataLoaded && !isLoggedIn && (userData.id || userData.lineUserId)) {
+    if (hasMounted && isDataLoaded && !isLoggedIn && (userData.id || userData.lineUserId)) {
       console.log('🔧 พบข้อมูล user แต่ isLoggedIn = false, กำลังแก้ไข...')
       setIsLoggedIn(true)
-      // อัพเดต localStorage ด้วย
-      if (hasMounted && typeof window !== 'undefined') {
-        localStorage.setItem('user_logged_in', 'true')
-      }
+      localStorage.setItem('user_logged_in', 'true')
     }
   }, [userData, isLoggedIn, isDataLoaded, hasMounted])
 
   // บันทึกข้อมูลลง localStorage เมื่อข้อมูลเปลี่ยนแปลง
   useEffect(() => {
-    if (isDataLoaded && hasMounted) {
+    if (hasMounted && isDataLoaded) {
       localStorage.setItem('user_profile', JSON.stringify(userData))
     }
   }, [userData, isDataLoaded, hasMounted])
 
   // บันทึกสถานะ login
   useEffect(() => {
-    if (isDataLoaded && hasMounted) {
+    if (hasMounted && isDataLoaded) {
       localStorage.setItem('user_logged_in', isLoggedIn.toString())
     }
   }, [isLoggedIn, isDataLoaded, hasMounted])
 
   const updateUserData = useCallback((data: Partial<UserData>) => {
-    setUserData(prev => ({ ...prev, ...data }))
+    console.log('🔄 อัพเดทข้อมูลผู้ใช้:', data)
+    setUserData(prev => {
+      const newData = { ...prev, ...data }
+      console.log('👤 ข้อมูลผู้ใช้ใหม่:', newData)
+      return newData
+    })
   }, [])
 
   const logout = useCallback(() => {
+    console.log('🚪 ผู้ใช้ logout - กำลังเคลียร์ข้อมูล...')
     setIsLoggedIn(false)
     setUserData(defaultUserData)
-    if (hasMounted && typeof window !== 'undefined') {
+    if (hasMounted) {
       localStorage.removeItem('user_logged_in')
       localStorage.removeItem('user_profile')
     }
+    // Cart จะถูก clear อัตโนมัติโดย CartAuthSync component
   }, [hasMounted])
 
   return (

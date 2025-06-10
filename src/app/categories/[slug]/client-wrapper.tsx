@@ -7,7 +7,6 @@ interface CategoryClientWrapperProps {
 }
 
 const CategoryClient = dynamic(() => import('./client'), {
-  ssr: false,
   loading: () => <Loading text="กำลังโหลด" fullScreen />
 });
 

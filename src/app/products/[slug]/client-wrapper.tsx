@@ -8,7 +8,6 @@ interface ProductClientWrapperProps {
 }
 
 const ProductClient = dynamic(() => import('./client'), {
-  ssr: false,
   loading: () => <Loading text="กำลังโหลด" fullScreen />
 });
 

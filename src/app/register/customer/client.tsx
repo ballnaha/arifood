@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { z } from 'zod'
 import {
   Box,
   Container,
@@ -28,16 +29,44 @@ import {
 } from '@mui/icons-material'
 import GoogleMapEmbed from '@/components/GoogleMapEmbed'
 
-interface FormData {
-  name: string
-  email: string
-  phone: string
-  address: string
-  latitude?: number
-  longitude?: number
-  password: string
-  confirmPassword: string
-}
+// Schema สำหรับ customer registration
+const customerRegisterSchema = z.object({
+  name: z.string()
+    .min(1, 'กรุณากรอกชื่อ-นามสกุล')
+    .min(2, 'ชื่อต้องมีอย่างน้อย 2 ตัวอักษร')
+    .max(100, 'ชื่อต้องไม่เกิน 100 ตัวอักษร'),
+  
+  email: z.string()
+    .min(1, 'กรุณากรอกอีเมล')
+    .email('รูปแบบอีเมลไม่ถูกต้อง'),
+  
+  phone: z.string()
+    .min(1, 'กรุณากรอกเบอร์โทรศัพท์')
+    .regex(/^0\d{8,9}$/, 'รูปแบบเบอร์โทรไม่ถูกต้อง (เช่น 0812345678)'),
+  
+  address: z.string()
+    .min(1, 'กรุณากรอกที่อยู่')
+    .min(10, 'ที่อยู่ต้องมีอย่างน้อย 10 ตัวอักษร'),
+  
+  password: z.string()
+    .min(1, 'กรุณากรอกรหัสผ่าน')
+    .min(6, 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร')
+    .max(50, 'รหัสผ่านต้องไม่เกิน 50 ตัวอักษร'),
+  
+  confirmPassword: z.string()
+    .min(1, 'กรุณายืนยันรหัสผ่าน'),
+  
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "รหัสผ่านไม่ตรงกัน",
+  path: ["confirmPassword"],
+}).refine((data) => data.latitude && data.longitude, {
+  message: "กรุณาระบุตำแหน่งปัจจุบัน",
+  path: ["latitude"],
+})
+
+type FormData = z.infer<typeof customerRegisterSchema>
 
 interface LocationState {
   loading: boolean
@@ -61,6 +90,7 @@ export default function CustomerRegisterClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [locationState, setLocationState] = useState<LocationState>({
     loading: false,
     error: null,
@@ -170,37 +200,26 @@ export default function CustomerRegisterClient() {
   }
 
   const validateForm = () => {
-    if (!formData.name || !formData.email || !formData.phone || !formData.password) {
-      setError('กรุณากรอกข้อมูลให้ครบถ้วน')
+    try {
+      customerRegisterSchema.parse(formData)
+      setErrors({})
+      setError(null)
+      return true
+    } catch (error: any) {
+      const formErrors: Record<string, string> = {}
+      error.errors?.forEach((err: any) => {
+        if (err.path && err.path.length > 0) {
+          formErrors[err.path[0]] = err.message
+        }
+      })
+      setErrors(formErrors)
+      
+      // แสดง error ตัวแรกใน general error message
+      if (error.errors && error.errors.length > 0) {
+        setError(error.errors[0].message)
+      }
       return false
     }
-
-    if (!formData.latitude || !formData.longitude) {
-      setError('กรุณาตรวจสอบตำแหน่งปัจจุบันก่อนสมัครสมาชิก')
-      return false
-    }
-
-    if (formData.password.length < 6) {
-      setError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร')
-      return false
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('รหัสผ่านไม่ตรงกัน')
-      return false
-    }
-
-    if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      setError('รูปแบบอีเมลไม่ถูกต้อง')
-      return false
-    }
-
-    if (!/^0\d{8,9}$/.test(formData.phone)) {
-      setError('รูปแบบเบอร์โทรไม่ถูกต้อง (เช่น 0812345678)')
-      return false
-    }
-
-    return true
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -327,6 +346,8 @@ export default function CustomerRegisterClient() {
                 label="ชื่อ-นามสกุล"
                 value={formData.name}
                 onChange={handleInputChange('name')}
+                error={!!errors.name}
+                helperText={errors.name}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -345,6 +366,8 @@ export default function CustomerRegisterClient() {
                 type="email"
                 value={formData.email}
                 onChange={handleInputChange('email')}
+                error={!!errors.email}
+                helperText={errors.email}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -363,6 +386,8 @@ export default function CustomerRegisterClient() {
                 value={formData.phone}
                 onChange={handleInputChange('phone')}
                 placeholder="0812345678"
+                error={!!errors.phone}
+                helperText={errors.phone}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -384,6 +409,8 @@ export default function CustomerRegisterClient() {
                   value={formData.address}
                   onChange={handleInputChange('address')}
                   placeholder="กรอกที่อยู่หรือใช้ตำแหน่งปัจจุบัน"
+                  error={!!errors.address}
+                  helperText={errors.address}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
@@ -467,6 +494,8 @@ export default function CustomerRegisterClient() {
                 type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={handleInputChange('password')}
+                error={!!errors.password}
+                helperText={errors.password}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -495,6 +524,8 @@ export default function CustomerRegisterClient() {
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={formData.confirmPassword}
                 onChange={handleInputChange('confirmPassword')}
+                error={!!errors.confirmPassword}
+                helperText={errors.confirmPassword}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">

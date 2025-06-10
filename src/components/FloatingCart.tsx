@@ -17,17 +17,28 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { useUser } from '@/contexts/UserContext';
 
 export default function FloatingCart() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const { items, totalItems, totalPrice, _hasHydrated } = useCartStore();
+  const { items, totalItems, totalPrice, _hasHydrated, checkAuthAndClearIfNeeded } = useCartStore();
   const { requireAuth } = useRequireAuth();
+  const { userData } = useUser();
+  
+  const isLoggedIn = !!userData;
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    // ตรวจสอบและ clear cart ถ้าไม่ได้ login
+    if (mounted && _hasHydrated) {
+      checkAuthAndClearIfNeeded();
+    }
+  }, [mounted, _hasHydrated, isLoggedIn, checkAuthAndClearIfNeeded]);
 
   const handleCartClick = () => {
     if (totalItems > 0) {

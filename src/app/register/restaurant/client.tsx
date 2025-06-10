@@ -606,24 +606,6 @@ export default function RestaurantRegisterClient() {
             </form>
           </CardContent>
         </Card>
-
-        {/* LINE Login Warning */}
-        <Box sx={{ 
-          textAlign: 'center', 
-          mt: 3, 
-          p: 2, 
-          bgcolor: '#FFF3E0', 
-          borderRadius: 2, 
-          border: '1px solid #FFB74D' 
-        }}>
-          <Typography variant="body2" color="warning.main" sx={{ fontWeight: 500, mb: 1 }}>
-            ⚠️ สำคัญ: LINE Login สำหรับลูกค้าเท่านั้น
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            หากต้องการเป็นเจ้าของร้านอาหาร กรุณาสมัครผ่านฟอร์มนี้ เนื่องจาก LINE Login รองรับเฉพาะบัญชีลูกค้า
-          </Typography>
-        </Box>
-
         <Box sx={{ textAlign: 'center', mt: 3 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             มีบัญชีแล้ว?

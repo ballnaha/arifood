@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useUser } from '@/context/UserContext'
+import { useUser } from '@/contexts/UserContext'
 import {
   Box,
   Container,

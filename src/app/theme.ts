@@ -25,8 +25,8 @@ const theme = createTheme({
     },
     divider: '#E0E0E0',
     success: {
-      main: '#FFD700',
-      contrastText: '#000000',
+      main: '#4CAF50',
+      contrastText: '#FFFFFF',
     },
   },
   typography: {

@@ -3,8 +3,10 @@ import { Prompt } from "next/font/google";
 import "./globals.css";
 import ClientThemeProvider from './client-theme-provider';
 import { RestaurantDialogProvider } from '@/context/RestaurantDialogContext'
-import { UserProvider } from '@/context/UserContext';
+import { UserProvider } from '@/contexts/UserContext';
 import FloatingCart from '@/components/FloatingCart';
+import CartAuthSync from '@/components/CartAuthSync';
+import NoSSR from '@/components/NoSSR';
 
 const prompt = Prompt({
   weight: ['300', '400', '500', '600', '700'],
@@ -37,16 +39,20 @@ export default function RootLayout({
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
+        <meta name="emotion-insertion-point" id="emotion-insertion-point" />
       </head>
       <body className={prompt.className}>
-        <ClientThemeProvider>
-          <UserProvider>
-            <RestaurantDialogProvider>
-              {children}
-              <FloatingCart />
-            </RestaurantDialogProvider>
-          </UserProvider>
-        </ClientThemeProvider>
+        <NoSSR fallback={<div>Loading...</div>}>
+          <ClientThemeProvider>
+            <UserProvider>
+              <RestaurantDialogProvider>
+                <CartAuthSync />
+                {children}
+                <FloatingCart />
+              </RestaurantDialogProvider>
+            </UserProvider>
+          </ClientThemeProvider>
+        </NoSSR>
       </body>
     </html>
   );

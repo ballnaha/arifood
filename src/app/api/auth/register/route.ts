@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
       address: newUser.address,
       latitude: newUser.latitude,
       longitude: newUser.longitude,
+      avatar: newUser.avatar,
       role: newUser.role
     }
 

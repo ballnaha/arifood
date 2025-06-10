@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useUser } from '@/context/UserContext'
+import { useUser } from '@/contexts/UserContext'
+import { loginSchema, type LoginInput } from '@/lib/validations'
 import {
   Box,
   Container,
@@ -27,15 +28,21 @@ import {
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { setIsLoggedIn, updateUserData } = useUser()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const { login: loginUser } = useUser()
+  const [formData, setFormData] = useState<LoginInput>({
+    email: '',
+    password: ''
+  })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+    
     const message = searchParams.get('message')
     const error = searchParams.get('error')
     
@@ -61,11 +68,28 @@ export default function LoginPage() {
     }
   }, [searchParams])
 
+  const validateForm = () => {
+    try {
+      loginSchema.parse(formData)
+      setErrors({})
+      return true
+    } catch (error: any) {
+      const formErrors: Record<string, string> = {}
+      error.errors?.forEach((err: any) => {
+        if (err.path) {
+          formErrors[err.path[0]] = err.message
+        }
+      })
+      setErrors(formErrors)
+      return false
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!email || !password) {
-      setError('กรุณากรอกอีเมลและรหัสผ่าน')
+    if (!validateForm()) {
+      setError('กรุณาแก้ไขข้อมูลที่ไม่ถูกต้อง')
       return
     }
 
@@ -76,32 +100,27 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify(formData)
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        // อัพเดทสถานะ login และข้อมูลผู้ใช้จากฐานข้อมูล
-        setIsLoggedIn(true)
-        updateUserData({
-          id: data.user.id,
-          name: data.user.name,
-          email: data.user.email,
-          phone: data.user.phone,
-          address: data.user.address,
-          latitude: data.user.latitude,
-          longitude: data.user.longitude,
-          lineUserId: data.user.lineUserId,
-          role: data.user.role,
-          restaurant: data.user.restaurant
-        })
+        // บันทึก token และข้อมูลผู้ใช้ (ใน client-side เท่านั้น)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('authToken', data.token)
+        }
         
-        // Redirect based on user role
-        if (data.user.role === 'RESTAURANT_OWNER' && data.user.restaurant) {
-          router.push('/restaurant/dashboard')
-        } else {
-          router.push('/')
+        // เรียก login method จาก UserContext เพื่อ refresh ข้อมูลผู้ใช้
+        const success = await loginUser(formData.email, formData.password)
+        
+        if (success) {
+          // Redirect based on user role
+          if (data.user.role === 'RESTAURANT_OWNER' && data.user.restaurant) {
+            router.push('/restaurant/dashboard')
+          } else {
+            router.push('/')
+          }
         }
       } else {
         setError(data.error)
@@ -116,6 +135,9 @@ export default function LoginPage() {
   }
 
   const handleLineLogin = () => {
+    // ตรวจสอบว่า component ถูก mount แล้วหรือไม่ (client-side เท่านั้น)
+    if (!mounted) return
+    
     // สร้าง LINE Login URL
     const clientId = process.env.NEXT_PUBLIC_LINE_CLIENT_ID
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ari.treetelu.com'
@@ -132,8 +154,17 @@ export default function LoginPage() {
     window.location.href = lineAuthUrl
   }
 
+  // ป้องกัน hydration mismatch โดยไม่ render จนกว่า component จะ mount
+  if (!mounted) {
+    return (
+      <Box sx={{ backgroundColor: '#FAFAFA', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
   return (
-    <Box sx={{ backgroundColor: '#FAFAFA', minHeight: '100vh' }}>
+    <Box sx={{ backgroundColor: '#FAFAFA', minHeight: '100vh' }} suppressHydrationWarning>
       {/* Header */}
       <Box sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
         <Container maxWidth="sm" sx={{ px: 2, py: 2 }}>
@@ -182,8 +213,10 @@ export default function LoginPage() {
                 fullWidth
                 label="อีเมล"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                error={!!errors.email}
+                helperText={errors.email}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -200,8 +233,10 @@ export default function LoginPage() {
                 fullWidth
                 label="รหัสผ่าน"
                 type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                error={!!errors.password}
+                helperText={errors.password}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -269,6 +304,7 @@ export default function LoginPage() {
               variant="contained"
               size="large"
               onClick={handleLineLogin}
+              disabled={!mounted}
               sx={{
                 bgcolor: '#00C300',
                 color: 'white',
@@ -285,15 +321,6 @@ export default function LoginPage() {
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box 
-                  component="span" 
-                  sx={{ 
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  LINE
-                </Box>
                 <span>เข้าสู่ระบบด้วย LINE</span>
               </Box>
             </Button>

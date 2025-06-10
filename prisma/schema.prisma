@@ -3,7 +3,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -27,7 +26,32 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   
-  restaurant   Restaurant?
+  // Relationships
+  restaurant        Restaurant?
+  customerOrders    Order[]     @relation("CustomerOrders")
+  riderProfile      Rider?
+  deliveredOrders   Order[]     @relation("RiderOrders")
+}
+
+model Rider {
+  id                String         @id @default(cuid())
+  userId            String         @unique
+  licenseNumber     String?        // หมายเลขใบขับขี่
+  vehicleType       VehicleType    @default(MOTORCYCLE)
+  vehiclePlate      String?        // ทะเบียนรถ
+  bankAccount       String?        // เลขบัญชีธนาคาร
+  bankName          String?        // ชื่อธนาคาร
+  status            RiderStatus    @default(PENDING)
+  isOnline          Boolean        @default(false)
+  currentLatitude   Float?         // ตำแหน่งปัจจุบัน
+  currentLongitude  Float?
+  rating            Float          @default(0)
+  totalDeliveries   Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  user              User           @relation(fields: [userId], references: [id])
+  deliveries        Delivery[]
 }
 
 model Category {
@@ -80,6 +104,9 @@ model Restaurant {
   image        String?
   rating       Float     @default(0)
   deliveryTime String?   // เช่น "15-25 นาที"
+  deliveryFee  Float     @default(0)  // ค่าจัดส่ง
+  minimumOrder Float     @default(0)  // ยอดสั่งซื้อขั้นต่ำ
+  status       RestaurantStatus @default(PENDING)  // สถานะการอนุมัติ
   isActive     Boolean   @default(true)
   isOpen       Boolean   @default(true)  // สถานะเปิด/ปิดร้าน
   createdAt    DateTime  @default(now())
@@ -93,20 +120,68 @@ model Restaurant {
 }
 
 model Order {
-  id           String      @id @default(cuid())
-  orderNumber  String      @unique
-  customerName String
-  customerPhone String
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  customerId      String?     // เชื่อมโยงกับ User (Customer)
+  customerName    String
+  customerPhone   String
   customerAddress String
-  totalAmount  Float
-  status       OrderStatus @default(PENDING)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  customerLatitude Float?
+  customerLongitude Float?
+  riderId         String?     // เชื่อมโยงกับ User (Rider)
+  subtotalAmount  Float       // ราคารวมอาหาร
+  deliveryFee     Float       @default(0)  // ค่าจัดส่ง
+  totalAmount     Float       // ราคารวมทั้งหมด
+  status          OrderStatus @default(PENDING)
+  paymentMethod   PaymentMethod @default(CASH)
+  paymentStatus   PaymentStatus @default(PENDING)
+  specialInstructions String?  // คำแนะนำพิเศษ
+  estimatedDeliveryTime DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
   
   restaurantId String
   restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
   
+  customer     User?       @relation("CustomerOrders", fields: [customerId], references: [id])
+  rider        User?       @relation("RiderOrders", fields: [riderId], references: [id])
+  
   orderItems   OrderItem[]
+  delivery     Delivery?
+}
+
+model Delivery {
+  id                String         @id @default(cuid())
+  orderId           String         @unique
+  riderId           String
+  pickupLatitude    Float?         // ตำแหน่งร้านอาหาร
+  pickupLongitude   Float?
+  deliveryLatitude  Float?         // ตำแหน่งลูกค้า
+  deliveryLongitude Float?
+  status            DeliveryStatus @default(ASSIGNED)
+  pickedUpAt        DateTime?      // เวลาที่รับอาหารจากร้าน
+  deliveredAt       DateTime?      // เวลาที่ส่งถึงลูกค้า
+  estimatedDistance Float?         // ระยะทางประมาณ (กิโลเมตร)
+  actualDistance    Float?         // ระยะทางจริง
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  order   Order @relation(fields: [orderId], references: [id])
+  rider   Rider @relation(fields: [riderId], references: [id])
+  
+  trackingUpdates DeliveryTracking[]
+}
+
+model DeliveryTracking {
+  id         String   @id @default(cuid())
+  deliveryId String
+  latitude   Float
+  longitude  Float
+  status     DeliveryStatus
+  notes      String?  // หมายเหตุเพิ่มเติม
+  createdAt  DateTime @default(now())
+  
+  delivery   Delivery @relation(fields: [deliveryId], references: [id])
 }
 
 model OrderItem {
@@ -127,13 +202,15 @@ model OrderItem {
 model CartItem {
   id        String   @id @default(cuid())
   quantity  Int
-  sessionId String   // ใช้ session ID แทน user ID เนื่องจากยังไม่มี authentication
+  userId    String?  // เชื่อมโยงกับ User แทน sessionId
+  sessionId String?  // เก็บไว้สำหรับ guest users
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   productId String
   product   Product  @relation(fields: [productId], references: [id])
   
+  @@unique([userId, productId])
   @@unique([sessionId, productId])
 }
 
@@ -175,17 +252,68 @@ model OrderItemAddOn {
   @@unique([orderItemId, addOnId])
 }
 
+// Enums
+enum RestaurantStatus {
+  PENDING    // รอการอนุมัติ
+  APPROVED   // อนุมัติแล้ว
+  REJECTED   // ถูกปฏิเสธ
+  SUSPENDED  // ถูกระงับ
+}
+
 enum OrderStatus {
-  PENDING
-  CONFIRMED
-  PREPARING
-  OUT_FOR_DELIVERY
-  DELIVERED
-  CANCELLED
+  PENDING           // รอยืนยันจากร้าน
+  CONFIRMED         // ร้านยืนยันแล้ว
+  PREPARING         // กำลังเตรียมอาหาร
+  READY_FOR_PICKUP  // อาหารพร้อมรับ
+  ASSIGNED_RIDER    // จัดไรเดอร์แล้ว
+  PICKED_UP         // ไรเดอร์รับอาหารแล้ว
+  OUT_FOR_DELIVERY  // กำลังจัดส่ง
+  DELIVERED         // จัดส่งสำเร็จ
+  CANCELLED         // ยกเลิก
+}
+
+enum DeliveryStatus {
+  ASSIGNED          // จัดไรเดอร์แล้ว
+  GOING_TO_PICKUP   // กำลังไปรับอาหาร
+  ARRIVED_PICKUP    // ถึงร้านแล้ว
+  PICKED_UP         // รับอาหารแล้ว
+  GOING_TO_DELIVERY // กำลังไปส่ง
+  ARRIVED_DELIVERY  // ถึงที่หมายแล้ว
+  DELIVERED         // ส่งสำเร็จ
+  FAILED            // จัดส่งไม่สำเร็จ
 }
 
 enum UserRole {
   CUSTOMER
   RESTAURANT_OWNER
+  RIDER
   ADMIN
+}
+
+enum RiderStatus {
+  PENDING    // รอการอนุมัติ
+  APPROVED   // อนุมัติแล้ว
+  REJECTED   // ถูกปฏิเสธ
+  SUSPENDED  // ถูกระงับ
+}
+
+enum VehicleType {
+  MOTORCYCLE  // มอเตอร์ไซค์
+  BICYCLE     // จักรยาน
+  CAR         // รถยนต์
+  WALK        // เดินเท้า
+}
+
+enum PaymentMethod {
+  CASH           // เงินสด
+  CREDIT_CARD    // บัตรเครดิต
+  MOBILE_BANKING // โมบายแบงก์กิ้ง
+  E_WALLET       // กระเป๋าเงินอิเล็กทรอนิกส์
+}
+
+enum PaymentStatus {
+  PENDING    // รอการชำระเงิน
+  PAID       // ชำระเงินแล้ว
+  FAILED     // การชำระเงินล้มเหลว
+  REFUNDED   // คืนเงินแล้ว
 }

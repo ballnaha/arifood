@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient, UserRole } from '@/generated/prisma'
+import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ari.treetelu.com'
@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
     console.log('LINE Profile:', JSON.stringify(lineProfile, null, 2))
     console.log('displayName:', lineProfile.displayName)
     console.log('userId:', lineProfile.userId)
+    console.log('pictureUrl:', lineProfile.pictureUrl)
     console.log('========================')
 
     // Check if user already exists
@@ -77,8 +78,9 @@ export async function GET(request: NextRequest) {
           name: lineProfile.displayName || `ผู้ใช้ LINE ${lineProfile.userId.slice(-4)}`, // fallback name ภาษาไทย
           email: lineProfile.email || `${lineProfile.userId}@line.user`,
           password: '', // LINE users don't need password
-          role: UserRole.CUSTOMER, // บังคับให้เป็น CUSTOMER เท่านั้น
+          role: 'CUSTOMER', // บังคับให้เป็น CUSTOMER เท่านั้น
           lineUserId: lineProfile.userId,
+          avatar: lineProfile.pictureUrl || '', // เพิ่ม avatar จาก LINE
           phone: '', // จะให้กรอกภายหลัง
           address: '', // จะให้กรอกภายหลัง
         },
@@ -87,12 +89,13 @@ export async function GET(request: NextRequest) {
         }
       })
     } else {
-      // Update LINE user ID and name every time login
+      // Update LINE user ID, name และ avatar every time login
       user = await prisma.user.update({
         where: { id: user.id },
         data: { 
           lineUserId: lineProfile.userId,
           name: lineProfile.displayName || user.name || `ผู้ใช้ LINE ${lineProfile.userId.slice(-4)}`, // อัพเดตชื่อ + fallback ภาษาไทย
+          avatar: lineProfile.pictureUrl || user.avatar || '', // อัพเดต avatar จาก LINE หรือใช้ของเดิม
         },
         include: {
           restaurant: true
@@ -105,6 +108,7 @@ export async function GET(request: NextRequest) {
     console.log('User:', JSON.stringify(user, null, 2))
     console.log('user.name:', user.name)
     console.log('user.lineUserId:', user.lineUserId)
+    console.log('user.avatar:', user.avatar)
     console.log('=====================================')
 
     // Generate response with user data
@@ -117,6 +121,7 @@ export async function GET(request: NextRequest) {
       latitude: user.latitude,
       longitude: user.longitude,
       lineUserId: user.lineUserId,
+      avatar: user.avatar, // เพิ่ม avatar ในข้อมูลที่ส่งไป
       role: user.role,
       restaurant: user.restaurant ? {
         id: user.restaurant.id,

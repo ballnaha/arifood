@@ -26,6 +26,7 @@ interface CartStore {
   totalItems: number
   totalPrice: number
   _hasHydrated: boolean
+  isAuthenticated: boolean
   addItem: (
     item: Omit<CartItem, 'quantity'>, 
     restaurant?: Restaurant,
@@ -37,6 +38,8 @@ interface CartStore {
   getItemQuantity: (id: string) => number
   setHasHydrated: (state: boolean) => void
   canAddFromRestaurant: (restaurantId: string) => boolean
+  setAuthenticated: (isAuth: boolean) => void
+  checkAuthAndClearIfNeeded: () => void
 }
 
 export const useCartStore = create<CartStore>()(
@@ -47,8 +50,47 @@ export const useCartStore = create<CartStore>()(
       totalItems: 0,
       totalPrice: 0,
       _hasHydrated: false,
+      isAuthenticated: false,
+
+      setAuthenticated: (isAuth) => {
+        const currentAuth = get().isAuthenticated
+        set({ isAuthenticated: isAuth })
+        
+        // ถ้าเปลี่ยนจาก authenticated เป็น unauthenticated ให้ clear cart
+        if (currentAuth && !isAuth) {
+          console.log('🛒 ผู้ใช้ logout แล้ว กำลัง clear cart...')
+          get().clearCart()
+        }
+      },
+
+      checkAuthAndClearIfNeeded: () => {
+        // ตรวจสอบ login status จาก localStorage
+        const isLoggedIn = typeof window !== 'undefined' ? 
+          localStorage.getItem('user_logged_in') === 'true' : false
+        
+        const currentAuth = get().isAuthenticated
+        
+        // อัพเดท auth status
+        if (currentAuth !== isLoggedIn) {
+          get().setAuthenticated(isLoggedIn)
+        }
+        
+        // ถ้าไม่ได้ login และมีสินค้าในตะกร้า ให้ clear
+        if (!isLoggedIn && get().items.length > 0) {
+          console.log('🛒 ผู้ใช้ไม่ได้ login กำลัง clear cart...')
+          get().clearCart()
+        }
+      },
 
       addItem: async (newItem, restaurant, onRestaurantConflict) => {
+        // ตรวจสอบ authentication ก่อนเพิ่มสินค้า
+        get().checkAuthAndClearIfNeeded()
+        
+        if (!get().isAuthenticated) {
+          console.log('🛒 ต้อง login ก่อนเพิ่มสินค้าลงตะกร้า')
+          return false
+        }
+
         const currentRestaurant = get().restaurant
         const items = get().items
 
@@ -177,6 +219,10 @@ export const useCartStore = create<CartStore>()(
       name: 'cart-storage',
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true)
+        // ตรวจสอบ auth เมื่อ rehydrate
+        if (state) {
+          state.checkAuthAndClearIfNeeded()
+        }
       },
     }
   )
